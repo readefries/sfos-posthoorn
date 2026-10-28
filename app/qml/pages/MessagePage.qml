@@ -231,17 +231,17 @@ Page {
                     text: Format.formatDate(message.date, Formatter.DateFull) + ", "
                           + Format.formatDate(message.date, Formatter.TimeValue)
                 }
-                Label {
-                    width: parent.width
-                    font.pixelSize: Theme.fontSizeExtraSmall
-                    color: Theme.secondaryColor
-                    wrapMode: Text.Wrap
-                    visible: message.numberOfAttachments > 0
-                    text: qsTr("%n attachment(s)", "", message.numberOfAttachments)
-                }
                 Item {
                     width: 1
                     height: Theme.paddingMedium
+                }
+            }
+
+            Repeater {
+                model: message.attachmentModel
+                ReceivedAttachmentItem {
+                    width: column.width
+                    mail: message
                 }
             }
 
