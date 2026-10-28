@@ -3,7 +3,12 @@ include(../common.pri)
 TARGET = posthoorn
 CONFIG += sailfishapp
 
-SOURCES += src/main.cpp
+include(../core/core.pri)
+
+HEADERS += src/messagebody.h
+SOURCES += \
+    src/main.cpp \
+    src/messagebody.cpp
 
 SAILFISHAPP_ICONS = 86x86 108x108 128x128 172x172
 
@@ -15,4 +20,5 @@ DISTFILES += \
     qml/pages/FoldersPage.qml \
     qml/pages/MessagesPage.qml \
     qml/pages/MessagePage.qml \
+    qml/pages/OpenLinkDialog.qml \
     qml/pages/SelectionPage.qml

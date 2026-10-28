@@ -2,30 +2,46 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Nemo.Email 0.1
+import Posthoorn 1.0
 
 Page {
     id: page
 
     property int messageId
 
-    // Reading a body makes the plugin download it, so only read them once the message is set: the
-    // bindings below can run before messageId is, which would request a download for message 0.
+    // The HTML part when there is one, unless the text part is asked for. Either way it's shown
+    // reformatted, never as the sender laid it out.
+    property bool preferTextPart: false
+    readonly property bool useHtml: message.contentType === EmailMessage.HTML && !preferTextPart
+    property bool showImages: false
+
+    // Reading a body makes the plugin download it, so only read the one that's used, and only once
+    // the message is set: the bindings can run before messageId is, which would request a download
+    // for message 0.
     readonly property bool loaded: message.messageId > 0
-    readonly property string plainText: loaded ? message.body : ""
-    readonly property string htmlText: loaded && showHtml ? message.htmlBody : ""
-    // " " is what the plugin returns for a downloaded plain part with no text.
-    readonly property bool hasPlainBody: plainText.trim().length > 0
-    // Plain text when the mail has it, unless chosen otherwise from the pulley. The plugin can't
-    // tell "no plain part" from "plain part still downloading", so this may switch once the body
-    // arrives.
-    property var htmlChoice: undefined
-    readonly property bool showHtml: htmlChoice !== undefined
-                                     ? htmlChoice
-                                     : message.contentType === EmailMessage.HTML && !hasPlainBody
+    readonly property string source: !loaded ? "" : useHtml ? message.htmlBody : message.body
 
     EmailMessage {
         id: message
         messageId: page.messageId
+    }
+
+    MessageBody {
+        id: formatted
+        html: page.useHtml ? page.source : ""
+        plainText: page.useHtml ? "" : page.source
+        showImages: page.showImages
+        textColor: Theme.primaryColor
+        linkColor: Theme.highlightColor
+        secondaryColor: Theme.secondaryColor
+        quoteColors: [Theme.secondaryHighlightColor, Theme.secondaryColor]
+        paragraphSpacing: Theme.paddingMedium
+        indent: Theme.paddingLarge
+        maxImageWidth: body.width - 2 * Theme.horizontalPageMargin
+        //: Shown in a mail instead of an image until images are loaded. %1 describes the image.
+        imagePlaceholder: qsTr("[Image: %1]")
+        //: Description of an image in a mail that has none of its own.
+        imageText: qsTr("no description")
     }
 
     Component.onCompleted: {
@@ -54,8 +70,13 @@ Page {
             }
             MenuItem {
                 visible: message.contentType === EmailMessage.HTML
-                text: page.showHtml ? qsTr("Show plain text") : qsTr("Show HTML")
-                onClicked: page.htmlChoice = !page.showHtml
+                text: page.preferTextPart ? qsTr("Use HTML part") : qsTr("Use text part")
+                onClicked: page.preferTextPart = !page.preferTextPart
+            }
+            MenuItem {
+                visible: formatted.imageCount > 0 && !page.showImages
+                text: qsTr("Load images (%1)").arg(formatted.imageCount)
+                onClicked: page.showImages = true
             }
             MenuItem {
                 text: qsTr("Mark as unread")
@@ -112,25 +133,36 @@ Page {
                 size: BusyIndicatorSize.Medium
                 running: visible
                 // The plugin downloads the body when it's first asked for, and returns "" until then.
-                visible: page.showHtml ? page.htmlText.length === 0 : page.plainText.length === 0
+                visible: page.source.length === 0
             }
 
-            // Spike: shows the body as-is, to try out text selection. HTML goes through Qt's rich
-            // text subset, which ignores scripts and doesn't fetch remote images; proper cleanup and
-            // theming come with the reader milestone.
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: page.showImages && formatted.remoteImageCount > 0
+                text: qsTr("Images loaded from the sender's servers: they can see that you read this mail.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.secondaryHighlightColor
+            }
+
             TextArea {
                 id: body
                 width: parent.width
                 readOnly: true
+                labelVisible: false
                 // Silica only selects on press-and-hold in a focused editor, and doesn't focus
                 // read-only ones on click. Read-only, focus doesn't bring up the keyboard.
                 focusOnClick: true
-                labelVisible: false
-                text: page.showHtml ? page.htmlText : page.plainText
-                color: Theme.primaryColor
-                Component.onCompleted: _editor.textFormat = Qt.binding(function() {
-                    return page.showHtml ? TextEdit.RichText : TextEdit.PlainText
-                })
+                text: formatted.text
+                Component.onCompleted: _editor.textFormat = TextEdit.RichText
+
+                onClicked: {
+                    var position = body.mapToItem(body._editor, mouse.x, mouse.y)
+                    var link = body._editor.linkAt(position.x, position.y)
+                    if (link.length > 0)
+                        pageStack.push(Qt.resolvedUrl("OpenLinkDialog.qml"), { url: link })
+                }
             }
         }
 

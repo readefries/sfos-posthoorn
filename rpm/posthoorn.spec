@@ -9,6 +9,7 @@ Source0:    %{name}-%{version}.tar.bz2
 BuildRequires:  pkgconfig(Qt5Core)
 BuildRequires:  pkgconfig(Qt5Quick)
 BuildRequires:  pkgconfig(Qt5Qml)
+BuildRequires:  pkgconfig(Qt5Test)
 BuildRequires:  pkgconfig(sailfishapp) >= 1.0.2
 BuildRequires:  desktop-file-utils
 Requires:       sailfishsilica-qt5 >= 0.10.9
@@ -27,6 +28,7 @@ uses the accounts from Settings → Accounts.
 %make_build
 
 %check
+make check
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop || :
 
 %install

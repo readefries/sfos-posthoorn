@@ -3,6 +3,8 @@
 // posthoorn: the UI. Mail itself is handled by the Qt Messaging Framework's messageserver, which
 // the app talks to through the Nemo.Email QML plugin.
 
+#include "messagebody.h"
+
 #include <sailfishapp.h>
 
 #include <QDateTime>
@@ -10,6 +12,7 @@
 #include <QFile>
 #include <QGuiApplication>
 #include <QLoggingCategory>
+#include <QQmlEngine>
 #include <QQuickView>
 #include <QScopedPointer>
 #include <QStandardPaths>
@@ -63,6 +66,8 @@ int main(int argc, char *argv[])
     startFileLog();
     // The email plugin only logs warnings by default.
     QLoggingCategory::setFilterRules(QStringLiteral("org.nemomobile.email.debug=true"));
+
+    qmlRegisterType<MessageBody>("Posthoorn", 1, 0, "MessageBody");
 
     QScopedPointer<QQuickView> view(SailfishApp::createView());
     view->setSource(SailfishApp::pathToMainQml());
