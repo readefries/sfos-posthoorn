@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 172">
+  <circle cx="86" cy="86" r="80" fill="#f2a900"/>
+  <!-- Post horn: a coiled tube with a bell on the right, mouthpiece on the left. -->
+  <g fill="none" stroke="#1d2b4f" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="80" cy="88" r="30" stroke-width="10"/>
+    <path d="M30 70 H60" stroke-width="8"/>
+    <path d="M110 88 C120 88 126 72 140 62" stroke-width="10"/>
+  </g>
+  <path d="M132 46 L152 40 L150 88 L132 78 Z" fill="#1d2b4f"/>
+  <rect x="22" y="64" width="10" height="12" rx="2" fill="#1d2b4f"/>
+</svg>

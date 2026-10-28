@@ -1,0 +1,9 @@
+*.o
+*.a
+moc_*
+*.moc
+Makefile*
+*.pro.user*
+.qmake.stash
+/build*/
+/RPMS/

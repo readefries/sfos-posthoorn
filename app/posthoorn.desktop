@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Name=Posthoorn
+Comment=Email client
+Icon=posthoorn
+Exec=posthoorn
+
+[X-Sailjail]
+# Email gives access to the Qt Messaging Framework (messageserver and the mail store), the same
+# backend the stock Email app uses, plus internet and GnuPG. Accounts is needed too: on Sailfish
+# QMF keeps its mail accounts in the system accounts database, not in the mail store. That database
+# lives in the privileged data directory, which only Privileged apps can open (this is also what
+# keeps the app out of Harbour).
+Permissions=Email;Accounts;Privileged
+OrganizationName=nl.readefries
+ApplicationName=posthoorn
