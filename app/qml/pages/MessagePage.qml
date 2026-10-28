@@ -91,35 +91,77 @@ Page {
             id: column
             width: parent.width
 
-            PageHeader {
-                title: message.subject
-                wrapMode: Text.Wrap
-            }
+            Column {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
 
-            DetailItem {
-                label: qsTr("From")
-                value: message.fromDisplayName.length > 0
-                       ? message.fromDisplayName + " <" + message.fromAddress + ">"
-                       : message.fromAddress
-            }
-            DetailItem {
-                label: qsTr("To")
-                value: message.to.join(", ")
-            }
-            DetailItem {
-                visible: message.cc.length > 0
-                label: qsTr("Cc")
-                value: message.cc.join(", ")
-            }
-            DetailItem {
-                label: qsTr("Date")
-                value: Format.formatDate(message.date, Formatter.DateFull) + " "
-                       + Format.formatDate(message.date, Formatter.TimeValue)
-            }
-            DetailItem {
-                visible: message.numberOfAttachments > 0
-                label: qsTr("Attachments")
-                value: message.numberOfAttachments
+                // Not a PageHeader: that aligns right, while the header lines below start left.
+                Item {
+                    width: 1
+                    height: Theme.paddingLarge
+                }
+                Label {
+                    width: parent.width
+                    text: message.subject
+                    wrapMode: Text.Wrap
+                    font.family: Theme.fontFamilyHeading
+                    font.pixelSize: Theme.fontSizeLarge
+                    color: Theme.highlightColor
+                }
+                Item {
+                    width: 1
+                    height: Theme.paddingMedium
+                }
+
+                Label {
+                    width: parent.width
+                    text: message.fromDisplayName.length > 0 ? message.fromDisplayName : message.fromAddress
+                    color: Theme.primaryColor
+                    truncationMode: TruncationMode.Fade
+                }
+                Label {
+                    width: parent.width
+                    visible: message.fromDisplayName.length > 0
+                    text: message.fromAddress
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.secondaryHighlightColor
+                    truncationMode: TruncationMode.Fade
+                }
+                Label {
+                    width: parent.width
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.secondaryColor
+                    wrapMode: Text.Wrap
+                    text: qsTr("To: %1").arg(message.to.join(", "))
+                }
+                Label {
+                    width: parent.width
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.secondaryColor
+                    wrapMode: Text.Wrap
+                    visible: message.cc.length > 0
+                    text: qsTr("Cc: %1").arg(message.cc.join(", "))
+                }
+                Label {
+                    width: parent.width
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.secondaryColor
+                    wrapMode: Text.Wrap
+                    text: Format.formatDate(message.date, Formatter.DateFull) + ", "
+                          + Format.formatDate(message.date, Formatter.TimeValue)
+                }
+                Label {
+                    width: parent.width
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.secondaryColor
+                    wrapMode: Text.Wrap
+                    visible: message.numberOfAttachments > 0
+                    text: qsTr("%n attachment(s)", "", message.numberOfAttachments)
+                }
+                Item {
+                    width: 1
+                    height: Theme.paddingMedium
+                }
             }
 
             Separator {

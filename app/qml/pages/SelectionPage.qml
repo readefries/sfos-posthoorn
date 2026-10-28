@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import QtQuick 2.0
 import Sailfish.Silica 1.0
+import Posthoorn 1.0
 
 // Spike: shows how a reply quoting only the selected text would start. Compose comes later.
 Page {
@@ -10,10 +11,27 @@ Page {
     property var date
     property string selection
 
-    function quote(text) {
-        return text.split("\n").map(function(line) {
-            return line.length > 0 && line[0] === ">" ? ">" + line : "> " + line
-        }).join("\n")
+    // What would be sent: '>' quoting, which every mail client understands. Shown here the way the
+    // reader shows quotes.
+    readonly property string quoted: {
+        // Text selected in rich text has U+2029 between paragraphs and U+2028 for line breaks.
+        var lines = selection.replace(/\r\n|[\r  ]/g, "\n").split("\n")
+        return qsTr("On %1, %2 wrote:").arg(Format.formatDate(page.date, Formatter.DateMedium))
+                                       .arg(page.sender)
+                + "\n" + lines.map(function(line) {
+                    return line.length === 0 ? ">" : line[0] === ">" ? ">" + line : "> " + line
+                }).join("\n")
+    }
+
+    MessageBody {
+        id: formatted
+        plainText: page.quoted
+        textColor: Theme.primaryColor
+        linkColor: Theme.highlightColor
+        secondaryColor: Theme.secondaryColor
+        quoteColors: [Theme.secondaryHighlightColor, Theme.secondaryColor]
+        paragraphSpacing: Theme.paddingMedium
+        indent: Theme.paddingLarge
     }
 
     SilicaFlickable {
@@ -32,11 +50,8 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 wrapMode: Text.Wrap
-                font.family: "monospace"
-                font.pixelSize: Theme.fontSizeSmall
-                text: qsTr("On %1, %2 wrote:").arg(Format.formatDate(page.date, Formatter.DateMedium))
-                                             .arg(page.sender)
-                      + "\n" + page.quote(page.selection)
+                textFormat: Text.RichText
+                text: formatted.text
             }
         }
 

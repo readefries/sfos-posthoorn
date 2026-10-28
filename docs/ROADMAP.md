@@ -26,15 +26,26 @@ Android: lots of features, but reading and sorting mail stays quick.
 Accounts, folders and messages through `Nemo.Email`, message text in a selectable text area, a
 first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP account.
 
-### 2. Reader
+### 2. Reader ✓
 
-- HTML → structured text: paragraphs, line breaks, bold/italic, links, lists, headings (as bold),
-  quote levels. Fonts, sizes, colours, backgrounds and layout tables are dropped.
-- Plain-text mail through the same path: clickable links, `>` lines as quote levels.
-- Quote levels drawn the same for both (coloured bar or indent per level).
-- Image placeholders, and a "Load images" action per mail.
-- Written in C++ outside the UI, with unit tests run during the RPM build; odd newsletters become
-  test cases.
+- HTML and plain text reduced to the same structure (paragraphs, emphasis, links, lists, headings,
+  quote levels) and drawn in the theme. Hidden preheaders, scripts and tracking pixels are left out.
+- Images as placeholders, "Load images" per mail.
+- Links show where they go before opening. Only http(s), mailto and tel.
+- `core/mailcontent.cpp`, with unit tests run during the RPM build.
+
+### 2b. Reader follow-ups
+
+- **Clean links before showing them:** strip tracking parameters (`utm_*`, `fbclid`, `gclid`,
+  `mc_eid`, …) and unwrap redirectors such as Outlook Safe Links
+  (`*.safelinks.protection.outlook.com/?url=…`), so the dialog shows and opens the real target.
+  Keep a way to open the original link.
+- **Images too:** never load images from known tracking hosts, even after "Load images", and drop
+  tracking parameters from image URLs.
+- Rows of small images (social media icons and the like) wrap messily when loaded. Possibly
+  group them, or leave them out of "Load images".
+- A coloured bar for quote levels, as FairEmail draws them, if indent and colour aren't enough
+  (Qt's rich text can't draw block borders; it would need tables or a custom view).
 
 ### 3. Workflow
 
@@ -46,6 +57,8 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 
 ### 4. Compose
 
+- Quotes are sent as `>` lines (with format=flowed, so receivers rewrap them), but shown in the
+  composer the way the reader shows quotes, not as raw `>` characters.
 - Clean quoting: an attribution line ("On …, … wrote:"), `>` quoting of the original as plain
   text, the sender's signature and old nested quotes trimmed, reply above or below the quote,
   format=flowed.
