@@ -8,8 +8,8 @@ import Posthoorn 1.0
 // unless it's discarded from the pulley.
 //
 // Quotes are sent as '>' lines, which every mail client understands, but shown here the way the
-// reader shows them. The plugin sends plain text without format=flowed, so paragraphs go out as
-// single lines for the receiving client to wrap.
+// reader shows them. OutgoingMessage sends the text as format=flowed, so clients that know it
+// rewrap the lines to their width.
 Dialog {
     id: dialog
 
@@ -73,7 +73,6 @@ Dialog {
     }
 
     function fill(message) {
-        // First: it picks the account the rest belongs to.
         message.from = fromBox.value
         message.to = Addresses.split(toField.text)
         message.cc = Addresses.split(ccField.text)
@@ -81,21 +80,29 @@ Dialog {
         message.subject = subjectField.text
         message.body = composedBody()
         message.responseType = responseType
-        if (originalMessageId > 0)
-            message.originalMessageId = originalMessageId
+        message.originalMessageId = originalMessageId
     }
 
     onAccepted: {
         fill(outgoing)
-        outgoing.send()
+        var accountId = outgoing.send()
+        if (accountId > 0)
+            app.emailAgent.processSendingQueue(accountId)
+        else
+            Notices.show(qsTr("The mail couldn't be put in the Outbox"), Notice.Long, Notice.Center)
     }
 
     onRejected: {
         if (discarded || body.text.trim().length === 0)
             return
         fill(outgoing)
-        outgoing.saveDraft()
-        Notices.show(qsTr("Saved to Drafts"), Notice.Short, Notice.Center)
+        var accountId = outgoing.saveDraft()
+        if (accountId > 0) {
+            app.emailAgent.exportUpdates(accountId)
+            Notices.show(qsTr("Saved to Drafts"), Notice.Short, Notice.Center)
+        } else {
+            Notices.show(qsTr("The draft couldn't be saved"), Notice.Long, Notice.Center)
+        }
     }
 
     Component.onCompleted: {
@@ -108,7 +115,7 @@ Dialog {
             body.forceActiveFocus()
     }
 
-    EmailMessage {
+    OutgoingMessage {
         id: outgoing
     }
 

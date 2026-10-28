@@ -59,6 +59,8 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   to move mail from it in bulk.
 - Moving mail between accounts: QMF only moves within one, so copy to the other account, then
   delete.
+- Start where the app was left: reopen the last folder (and its account) after a restart instead
+  of the account overview. With a single account, the overview could be skipped altogether.
 
 ### 4. Compose
 
@@ -71,8 +73,9 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - ✓ Replying to a selection quotes only that.
 - ✓ The account's signature, drafts when leaving with text, a notice when sending finished.
 - Attachments: adding files, and sending the original's along when forwarding.
-- format=flowed. The plugin sends `text/plain` without it, so for now paragraphs go out as single
-  lines; flowed text needs building the message with QMF in C++.
+- ✓ Our own message builder (`OutgoingMessage`, with QMF): the text goes out as
+  `text/plain; charset=UTF-8; format=flowed`, quoted-printable, instead of the plugin's base64
+  without flowed. Stored, sent and saved as drafts the way the plugin does.
 - Recipient suggestions from Contacts (needs the Contacts permission).
 - Opening a draft in the composer again.
 - A "Binding loop detected for property canNavigateForward" warning from the compose Dialog.

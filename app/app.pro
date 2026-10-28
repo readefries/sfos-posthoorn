@@ -2,15 +2,19 @@ include(../common.pri)
 
 TARGET = posthoorn
 CONFIG += sailfishapp
+# Building outgoing mail; the rest goes through the Nemo.Email QML plugin.
+PKGCONFIG += QmfClient
 
 include(../core/core.pri)
 
 HEADERS += \
     src/addresses.h \
-    src/messagebody.h
+    src/messagebody.h \
+    src/outgoingmessage.h
 SOURCES += \
     src/main.cpp \
-    src/messagebody.cpp
+    src/messagebody.cpp \
+    src/outgoingmessage.cpp
 
 SAILFISHAPP_ICONS = 86x86 108x108 128x128 172x172
 

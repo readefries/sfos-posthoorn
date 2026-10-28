@@ -6,8 +6,10 @@ CONFIG += staticlib
 QT = core
 
 HEADERS += \
+    flowedtext.h \
     mailaddresses.h \
     mailcontent.h
 SOURCES += \
+    flowedtext.cpp \
     mailaddresses.cpp \
     mailcontent.cpp

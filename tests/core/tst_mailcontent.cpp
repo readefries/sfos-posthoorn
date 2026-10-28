@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include "flowedtext.h"
 #include "mailaddresses.h"
 #include "mailcontent.h"
 
@@ -20,6 +21,42 @@ QList<int> levels(const MailContent &content)
     for (const MailBlock &block : content.blocks)
         result.append(block.quoteLevel);
     return result;
+}
+
+// Decodes format=flowed as a reader does (RFC 3676 4.2), back to one line per paragraph.
+QString unflow(const QString &flowed)
+{
+    QStringList paragraphs;
+    QString current;
+    int currentDepth = -1;
+    bool open = false;
+    for (QString line : flowed.split(QLatin1Char('\n'))) {
+        int depth = 0;
+        while (depth < line.size() && line.at(depth) == QLatin1Char('>'))
+            ++depth;
+        line = line.mid(depth);
+        if (line.startsWith(QLatin1Char(' ')))
+            line.remove(0, 1);
+        const bool soft = line.endsWith(QLatin1Char(' ')) && line != QLatin1String("-- ");
+        if (open && depth == currentDepth) {
+            current += line;
+        } else {
+            if (open)
+                paragraphs.append(current);
+            const QString marker = depth > 0 ? QString(depth, QLatin1Char('>')) : QString();
+            current = marker + (depth > 0 && !line.isEmpty() ? QStringLiteral(" ") : QString()) + line;
+            currentDepth = depth;
+        }
+        open = soft;
+        if (!soft) {
+            paragraphs.append(current);
+            current.clear();
+            currentDepth = -1;
+        }
+    }
+    if (open)
+        paragraphs.append(current);
+    return paragraphs.join(QLatin1Char('\n'));
 }
 
 // The spans of a block that are links, as "text -> href".
@@ -64,6 +101,10 @@ private slots:
     void quoteLines();
     void splitAddresses();
     void addresses();
+    void flowedShortLines();
+    void flowedWraps();
+    void flowedQuotes();
+    void flowedSpecialLines();
 };
 
 void TestMailContent::paragraphsAndWhitespace()
@@ -357,6 +398,56 @@ void TestMailContent::addresses()
                                     << QStringLiteral("b@x.org") << QStringLiteral("B <B@x.org>"),
                                     QStringList() << QStringLiteral("me@example.org")),
              QStringList() << QStringLiteral("b@x.org"));
+}
+
+void TestMailContent::flowedShortLines()
+{
+    QCOMPARE(FlowedText::encode(QStringLiteral("Hi Jan,\n\nThanks!   \r\nBye")),
+             QStringLiteral("Hi Jan,\n\nThanks!\nBye"));
+}
+
+void TestMailContent::flowedWraps()
+{
+    const QString paragraph = QStringLiteral(
+            "This is a long paragraph that a phone keyboard produces as one line, and that has to be "
+            "wrapped for clients that don't understand format=flowed: https://example.org/a/very/long/"
+            "link/that/should/never/be/broken/in/the/middle/because/it/would/stop/working ok.");
+    const QString encoded = FlowedText::encode(paragraph);
+    const QStringList lines = encoded.split(QLatin1Char('\n'));
+    QVERIFY(lines.size() > 2);
+    for (int i = 0; i < lines.size(); ++i) {
+        const QString &line = lines.at(i);
+        if (!line.contains(QLatin1String("https://")))
+            QVERIFY2(line.size() <= 72, qPrintable(line));
+        // Every line but the last flows into the next.
+        QCOMPARE(line.endsWith(QLatin1Char(' ')), i < lines.size() - 1);
+    }
+    QVERIFY(encoded.contains(QLatin1String("https://example.org/a/very/long/link/that/should/never/be/"
+                                           "broken/in/the/middle/because/it/would/stop/working ")));
+    QCOMPARE(unflow(encoded), paragraph);
+}
+
+void TestMailContent::flowedQuotes()
+{
+    const QString text = QStringLiteral(
+            "My answer\n\nOn Monday, Jan wrote:\n> A quoted paragraph that is long enough to need "
+            "wrapping at least once, maybe twice, to fit.\n>\n>> Older, quoted twice, and also long "
+            "enough that it has to be wrapped.");
+    const QString encoded = FlowedText::encode(text);
+    for (const QString &line : encoded.split(QLatin1Char('\n')))
+        QVERIFY2(line.size() <= 72, qPrintable(line));
+    QVERIFY(encoded.contains(QLatin1String("\n>\n>> Older")));
+    for (const QString &line : encoded.split(QLatin1Char('\n'))) {
+        if (line.startsWith(QLatin1String(">>")))
+            QVERIFY(line.startsWith(QLatin1String(">> ")));
+    }
+    QCOMPARE(unflow(encoded), text);
+}
+
+void TestMailContent::flowedSpecialLines()
+{
+    QCOMPARE(FlowedText::encode(QStringLiteral(" indented\nFrom here on\nFromage\n-- \nJan")),
+             QStringLiteral("  indented\n From here on\nFromage\n-- \nJan"));
 }
 
 QTEST_APPLESS_MAIN(TestMailContent)

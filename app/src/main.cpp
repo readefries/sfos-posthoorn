@@ -5,6 +5,7 @@
 
 #include "addresses.h"
 #include "messagebody.h"
+#include "outgoingmessage.h"
 
 #include <sailfishapp.h>
 
@@ -69,6 +70,7 @@ int main(int argc, char *argv[])
     QLoggingCategory::setFilterRules(QStringLiteral("org.nemomobile.email.debug=true"));
 
     qmlRegisterType<MessageBody>("Posthoorn", 1, 0, "MessageBody");
+    qmlRegisterType<OutgoingMessage>("Posthoorn", 1, 0, "OutgoingMessage");
     qmlRegisterSingletonType<Addresses>("Posthoorn", 1, 0, "Addresses",
                                         [](QQmlEngine *, QJSEngine *) -> QObject * {
                                             return new Addresses;
