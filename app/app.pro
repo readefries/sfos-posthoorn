@@ -20,5 +20,6 @@ DISTFILES += \
     qml/pages/FoldersPage.qml \
     qml/pages/MessagesPage.qml \
     qml/pages/MessagePage.qml \
+    qml/pages/MoveToPage.qml \
     qml/pages/OpenLinkDialog.qml \
     qml/pages/SelectionPage.qml

@@ -79,6 +79,20 @@ Page {
                 onClicked: page.showImages = true
             }
             MenuItem {
+                text: qsTr("Move to…")
+                onClicked: {
+                    var picker = pageStack.push(Qt.resolvedUrl("MoveToPage.qml"), {
+                                                    accountId: message.accountId,
+                                                    currentFolderId: message.folderId
+                                                })
+                    picker.folderChosen.connect(function(folderId) {
+                        app.emailAgent.moveMessage(page.messageId, folderId)
+                        // Back to the list: the mail isn't in this folder any more.
+                        pageStack.pop(pageStack.previousPage(page))
+                    })
+                }
+            }
+            MenuItem {
                 text: qsTr("Mark as unread")
                 onClicked: {
                     app.emailAgent.markMessageAsUnread(page.messageId)

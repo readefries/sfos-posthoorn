@@ -49,11 +49,16 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 
 ### 3. Workflow
 
-- Marking read/unread quickly: swipe actions in the list, bulk selection, mark read on open
-  (already there).
-- Folders as part of the flow: folder drawer per account, favourites, unread counts, unified
-  inbox.
-- Moving mail between folders, and between accounts (copy to the other account, then delete).
+- ✓ Long-press menu per mail: mark read/unread, move, select, delete. (No swipe actions: they
+  aren't a Silica pattern.)
+- ✓ Selection mode, from the long-press menu or the pulley: tap to (un)select, a docked panel
+  to mark read/unread, move or delete the selection; select all/none in the pulley.
+- ✓ "Mark all as read" in a folder's pulley (covers the messages loaded in the list).
+- ✓ Move to a folder of the same account, from the list and from an open mail.
+- Folders as part of the flow: folder drawer per account, favourites, unified inbox with a way
+  to move mail from it in bulk.
+- Moving mail between accounts: QMF only moves within one, so copy to the other account, then
+  delete.
 
 ### 4. Compose
 
