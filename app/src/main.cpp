@@ -4,6 +4,7 @@
 // the app talks to through the Nemo.Email QML plugin.
 
 #include "addresses.h"
+#include "appstate.h"
 #include "messagebody.h"
 #include "outgoingmessage.h"
 
@@ -71,6 +72,10 @@ int main(int argc, char *argv[])
 
     qmlRegisterType<MessageBody>("Posthoorn", 1, 0, "MessageBody");
     qmlRegisterType<OutgoingMessage>("Posthoorn", 1, 0, "OutgoingMessage");
+    qmlRegisterSingletonType<AppState>("Posthoorn", 1, 0, "AppState",
+                                       [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                           return new AppState;
+                                       });
     qmlRegisterSingletonType<Addresses>("Posthoorn", 1, 0, "Addresses",
                                         [](QQmlEngine *, QJSEngine *) -> QObject * {
                                             return new Addresses;

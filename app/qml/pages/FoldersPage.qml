@@ -2,19 +2,45 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Nemo.Email 0.1
+import Posthoorn 1.0
 
 Page {
     id: page
 
     property int accountId
     property string title
+    // Set when the app starts where it was left: the folder to open right away.
+    property int restoreFolderId
+
+    function openFolder(index, folderId, name, operation) {
+        pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
+                           title: name,
+                           accountId: page.accountId,
+                           folderId: folderId,
+                           accessor: folders.folderAccessor(index)
+                       }, operation)
+    }
+
+    onStatusChanged: {
+        if (status !== PageStatus.Active)
+            return
+        if (restoreFolderId > 0) {
+            var folderId = restoreFolderId
+            restoreFolderId = 0
+            var index = folders.indexFromFolderId(folderId)
+            if (index >= 0) {
+                // The name comes from the folder itself, see MessagesPage.
+                openFolder(index, folderId, "", PageStackAction.Immediate)
+                return
+            }
+        }
+        AppState.save("folders", accountId)
+    }
 
     FolderListModel {
         id: folders
         accountKey: page.accountId
     }
-
-    Component.onCompleted: console.log("account", accountId, "has", folders.count, "folders")
 
     SilicaListView {
         id: list
@@ -51,12 +77,7 @@ Page {
             enabled: model.canHaveMessages
             contentHeight: Theme.itemSizeSmall
 
-            onClicked: pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
-                                          title: model.folderName,
-                                          accountId: page.accountId,
-                                          folderId: model.folderId,
-                                          accessor: folders.folderAccessor(index)
-                                      })
+            onClicked: page.openFolder(index, model.folderId, model.folderName, PageStackAction.Animated)
 
             Label {
                 anchors {

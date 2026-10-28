@@ -2,11 +2,14 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Nemo.Email 0.1
+import Posthoorn 1.0
 
 Page {
     id: page
 
+    // The folder's own name when not set.
     property string title
+    readonly property string shownTitle: title.length > 0 ? title : folder.displayName
     // Both 0 for the combined inbox.
     property int accountId
     property int folderId
@@ -19,6 +22,16 @@ Page {
     EmailMessageListModel {
         id: messages
         folderAccessor: page.accessor
+    }
+
+    EmailFolder {
+        id: folder
+        folderAccessor: page.accessor
+    }
+
+    onStatusChanged: {
+        if (status === PageStatus.Active)
+            AppState.save("messages", accountId, folderId)
     }
 
     RemorsePopup {
@@ -66,8 +79,8 @@ Page {
         model: messages
 
         header: PageHeader {
-            title: page.selecting ? qsTr("%n selected", "", messages.selectedMessageCount) : page.title
-            description: page.selecting ? page.title : qsTr("%n message(s)", "", messages.count)
+            title: page.selecting ? qsTr("%n selected", "", messages.selectedMessageCount) : page.shownTitle
+            description: page.selecting ? page.shownTitle : qsTr("%n message(s)", "", messages.count)
         }
 
         PullDownMenu {

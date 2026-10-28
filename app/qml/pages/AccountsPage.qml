@@ -1,9 +1,44 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import QtQuick 2.0
 import Sailfish.Silica 1.0
+import Posthoorn 1.0
 
 Page {
     id: page
+
+    property bool restored: false
+
+    // Opens the folder or account the app was left in.
+    function restore() {
+        var accountId = AppState.accountId
+        if (AppState.page === "messages" && accountId === 0) {
+            // The combined inbox is only offered with more than one account.
+            if (app.accounts.numberOfAccounts > 1) {
+                pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
+                                   title: qsTr("All inboxes"),
+                                   accessor: app.emailAgent.combinedInboxAccessor()
+                               }, PageStackAction.Immediate)
+            }
+        } else if ((AppState.page === "folders" || AppState.page === "messages")
+                   && app.accounts.indexFromAccountId(accountId) >= 0) {
+            pageStack.push(Qt.resolvedUrl("FoldersPage.qml"), {
+                               accountId: accountId,
+                               title: app.accounts.displayNameFromAccountId(accountId),
+                               restoreFolderId: AppState.page === "messages" ? AppState.folderId : 0
+                           }, PageStackAction.Immediate)
+        }
+    }
+
+    onStatusChanged: {
+        if (status !== PageStatus.Active)
+            return
+        if (!restored) {
+            restored = true
+            restore()
+        } else {
+            AppState.save("accounts")
+        }
+    }
 
     SilicaListView {
         id: list

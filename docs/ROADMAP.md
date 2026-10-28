@@ -59,8 +59,8 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   to move mail from it in bulk.
 - Moving mail between accounts: QMF only moves within one, so copy to the other account, then
   delete.
-- Start where the app was left: reopen the last folder (and its account) after a restart instead
-  of the account overview. With a single account, the overview could be skipped altogether.
+- ✓ Start where the app was left: the last folder (or account) opens again after a restart.
+- With a single account, the account overview could be skipped altogether.
 
 ### 4. Compose
 

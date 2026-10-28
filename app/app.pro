@@ -9,9 +9,11 @@ include(../core/core.pri)
 
 HEADERS += \
     src/addresses.h \
+    src/appstate.h \
     src/messagebody.h \
     src/outgoingmessage.h
 SOURCES += \
+    src/appstate.cpp \
     src/main.cpp \
     src/messagebody.cpp \
     src/outgoingmessage.cpp
