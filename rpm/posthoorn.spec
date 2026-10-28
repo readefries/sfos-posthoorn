@@ -3,7 +3,7 @@ Summary:    Email client for Sailfish OS
 Version:    0.1.0
 Release:    1%{?dev_suffix}
 License:    AGPLv3+
-URL:        https://github.com/readefries/sfos-mail
+URL:        https://github.com/readefries/sfos-posthoorn
 Source0:    %{name}-%{version}.tar.bz2
 
 BuildRequires:  pkgconfig(Qt5Core)
