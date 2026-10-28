@@ -65,6 +65,13 @@ public:
     void setImageText(const QString &text);
 
     QString text() const;
+    // For a reply: the text with every line quoted, without the sender's signature and, unless
+    // keepEarlierQuotes, without what the mail quoted itself.
+    Q_INVOKABLE QString quoted(bool keepEarlierQuotes) const { return m_content.quoted(keepEarlierQuotes); }
+    // A selection of the text, quoted for a reply.
+    Q_INVOKABLE QString quoteSelection(const QString &selection) const { return MailContent::quoteLines(selection); }
+    // The text without formatting, for forwarding.
+    Q_INVOKABLE QString plainContent() const { return m_content.toPlainText(); }
     int imageCount() const { return m_content.images.size(); }
     int remoteImageCount() const { return m_content.remoteImageCount(); }
 

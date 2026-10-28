@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include "mailaddresses.h"
 #include "mailcontent.h"
 
 #include <QtTest>
@@ -58,6 +59,11 @@ private slots:
     void toPlainText();
     void richTextUsesOnlyTheStyle();
     void richTextImages();
+    void signatures();
+    void quoted();
+    void quoteLines();
+    void splitAddresses();
+    void addresses();
 };
 
 void TestMailContent::paragraphsAndWhitespace()
@@ -296,6 +302,61 @@ void TestMailContent::richTextImages()
     const QString shown = toRichText(content, style);
     QVERIFY(shown.contains(QLatin1String("<img src=\"https://cdn.example/a.png\" width=\"400\" height=\"100\" />")));
     QVERIFY(shown.contains(QLatin1String("<img src=\"https://cdn.example/b.png\" />")));
+}
+
+void TestMailContent::signatures()
+{
+    const MailContent plain = MailContent::fromPlainText(QStringLiteral(
+            "Thanks\n\n-- \nJan\nCompany\n\nwww.example.com\n\n> quoted"));
+    QList<bool> marked;
+    for (const MailBlock &block : plain.blocks)
+        marked.append(block.signature);
+    QCOMPARE(marked, QList<bool>() << false << true << true << false);
+
+    const MailContent html = MailContent::fromHtml(QStringLiteral(
+            "<p>Hi</p><div class=\"gmail_signature\" data-smartmail=\"gmail_signature\"><p>Jan</p></div>"
+            "<div id=\"Signature\">Outlook</div><pre class=\"moz-signature\">Thunderbird</pre><p>After</p>"));
+    marked.clear();
+    for (const MailBlock &block : html.blocks)
+        marked.append(block.signature);
+    QCOMPARE(marked, QList<bool>() << false << true << true << true << false);
+}
+
+void TestMailContent::quoted()
+{
+    const MailContent content = MailContent::fromHtml(QStringLiteral(
+            "<p>Reply text</p><div class=\"gmail_signature\">Jan</div><blockquote>Earlier</blockquote>"));
+    QCOMPARE(content.quoted(true), QStringLiteral("> Reply text\n>\n>> Earlier"));
+    QCOMPARE(content.quoted(false), QStringLiteral("> Reply text"));
+}
+
+void TestMailContent::quoteLines()
+{
+    QCOMPARE(MailContent::quoteLines(QString::fromUtf8("\none\u2029two\u2028three\r\n\n> old\n\n")),
+             QStringLiteral("> one\n> two\n> three\n>\n>> old"));
+}
+
+void TestMailContent::splitAddresses()
+{
+    QCOMPARE(MailAddresses::split(QStringLiteral(
+                     "\"Doe, Jan\" <jan@example.org>, piet@example.org; <a@b.c>, ,Name <x;y@z.org>")),
+             QStringList() << QStringLiteral("\"Doe, Jan\" <jan@example.org>") << QStringLiteral("piet@example.org")
+             << QStringLiteral("<a@b.c>") << QStringLiteral("Name <x;y@z.org>"));
+}
+
+void TestMailContent::addresses()
+{
+    QCOMPARE(MailAddresses::address(QStringLiteral("\"Doe, Jan\" <Jan@Example.org>")), QStringLiteral("jan@example.org"));
+    QCOMPARE(MailAddresses::address(QStringLiteral(" Piet@Example.org ")), QStringLiteral("piet@example.org"));
+    QVERIFY(MailAddresses::isValid(QStringLiteral("Jan <jan@example.org>")));
+    QVERIFY(MailAddresses::isValid(QStringLiteral("jan@example.org")));
+    QVERIFY(!MailAddresses::isValid(QStringLiteral("jan")));
+    QVERIFY(!MailAddresses::isValid(QStringLiteral("jan@localhost")));
+    QVERIFY(!MailAddresses::isValid(QStringLiteral("Jan <jan@example.org")));
+    QCOMPARE(MailAddresses::without(QStringList() << QStringLiteral("Me <Me@Example.org>")
+                                    << QStringLiteral("b@x.org") << QStringLiteral("B <B@x.org>"),
+                                    QStringList() << QStringLiteral("me@example.org")),
+             QStringList() << QStringLiteral("b@x.org"));
 }
 
 QTEST_APPLESS_MAIN(TestMailContent)

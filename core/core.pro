@@ -5,5 +5,9 @@ TARGET = posthoorncore
 CONFIG += staticlib
 QT = core
 
-HEADERS += mailcontent.h
-SOURCES += mailcontent.cpp
+HEADERS += \
+    mailaddresses.h \
+    mailcontent.h
+SOURCES += \
+    mailaddresses.cpp \
+    mailcontent.cpp

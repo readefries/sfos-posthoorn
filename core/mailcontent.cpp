@@ -60,6 +60,40 @@ QString MailContent::toPlainText() const
     return paragraphs.join(QStringLiteral("\n\n"));
 }
 
+QString MailContent::quoted(bool keepEarlierQuotes) const
+{
+    MailContent kept;
+    kept.images = images;
+    for (const MailBlock &block : blocks) {
+        if (!block.signature && (keepEarlierQuotes || block.quoteLevel == 0))
+            kept.blocks.append(block);
+    }
+    return quoteLines(kept.toPlainText());
+}
+
+QString MailContent::quoteLines(const QString &text)
+{
+    QString normalized = text;
+    normalized.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+    normalized.replace(QLatin1Char('\r'), QLatin1Char('\n'));
+    normalized.replace(QChar(0x2028), QLatin1Char('\n'));
+    normalized.replace(QChar(0x2029), QLatin1Char('\n'));
+    QStringList lines = normalized.split(QLatin1Char('\n'));
+    while (!lines.isEmpty() && lines.last().trimmed().isEmpty())
+        lines.removeLast();
+    while (!lines.isEmpty() && lines.first().trimmed().isEmpty())
+        lines.removeFirst();
+    for (QString &line : lines) {
+        if (line.isEmpty())
+            line = QStringLiteral(">");
+        else if (line.startsWith(QLatin1Char('>')))
+            line.prepend(QLatin1Char('>'));
+        else
+            line.prepend(QLatin1String("> "));
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
 namespace {
 
 // Characters mail senders use to pad preheaders, or that only matter for hyphenation and joining.
@@ -375,6 +409,7 @@ private:
         QString href;
         bool ordered = false;
         int counter = 1;
+        bool signature = false;
     };
 
     void startTag(const QString &name, const Attributes &attributes);
@@ -554,6 +589,8 @@ void HtmlReader::openBlock()
         const QString &name = element.name;
         if (name.size() == 2 && name.at(0) == QLatin1Char('h') && name.at(1).isDigit())
             heading = true;
+        if (element.signature)
+            m_block.signature = true;
     }
     if (count(QStringLiteral("pre")) > 0) {
         m_block.kind = MailBlock::Preformatted;
@@ -731,6 +768,11 @@ void HtmlReader::startTag(const QString &name, const Attributes &attributes)
     element.name = name;
     element.hidden = isHiddenElement(name) || attributes.contains(QStringLiteral("hidden"))
             || isHiddenStyle(attributes.value(QStringLiteral("style")));
+    // How Gmail, Thunderbird and Outlook mark the signatures they add.
+    const QStringList classes = attributes.value(QStringLiteral("class")).split(QLatin1Char(' '));
+    element.signature = classes.contains(QStringLiteral("gmail_signature"))
+            || classes.contains(QStringLiteral("moz-signature"))
+            || attributes.value(QStringLiteral("id")).compare(QLatin1String("signature"), Qt::CaseInsensitive) == 0;
     if (name == QLatin1String("a")) {
         element.href = sanitizedHref(attributes.value(QStringLiteral("href")));
     } else if (name == QLatin1String("ol")) {
@@ -777,11 +819,29 @@ void HtmlReader::endTag(const QString &name)
         m_marker.clear();
 }
 
+// Marks the blocks from a "-- " line on as signature, until the quote level changes: a quote
+// after a signature is what the sender replied to.
+void markSignatures(MailContent &content)
+{
+    int level = -1;
+    for (MailBlock &block : content.blocks) {
+        if (level >= 0 && block.quoteLevel != level)
+            level = -1;
+        const QString text = block.text();
+        if (level < 0 && (text == QLatin1String("--") || text.startsWith(QLatin1String("--\n"))))
+            level = block.quoteLevel;
+        if (level >= 0)
+            block.signature = true;
+    }
+}
+
 } // namespace
 
 MailContent MailContent::fromHtml(const QString &html)
 {
-    return HtmlReader().read(html);
+    MailContent content = HtmlReader().read(html);
+    markSignatures(content);
+    return content;
 }
 
 MailContent MailContent::fromPlainText(const QString &text)
@@ -840,6 +900,7 @@ MailContent MailContent::fromPlainText(const QString &text)
         appendLinkified(block.spans, rest, MailSpan());
     }
     close();
+    markSignatures(content);
     return content;
 }
 

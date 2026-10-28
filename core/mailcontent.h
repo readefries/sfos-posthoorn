@@ -30,6 +30,8 @@ struct MailBlock
     int listDepth = 0;
     // ListItem: "•" or "3."
     QString marker;
+    // Part of the sender's signature: after a "-- " line, or in an HTML signature element.
+    bool signature = false;
     QVector<MailSpan> spans;
 
     QString text() const;
@@ -58,6 +60,13 @@ struct MailContent
     int remoteImageCount() const;
     // Blocks separated by empty lines, quote levels as "> " prefixes.
     QString toPlainText() const;
+    // The text for quoting in a reply: without the signature, and without what this mail quoted
+    // itself unless keepEarlierQuotes, with every line quoted once more.
+    QString quoted(bool keepEarlierQuotes) const;
+
+    // Puts "> " in front of every line ('>' for an empty one, or one quoted already). Accepts the
+    // paragraph and line separators text selected in rich text has.
+    static QString quoteLines(const QString &text);
 
     // Tolerant of broken HTML. Leaves out what a reader wouldn't see: scripts, styles, the head,
     // hidden elements (preheaders) and tracking pixels.

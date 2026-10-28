@@ -35,6 +35,10 @@ Page {
                 text: qsTr("Sync account")
                 onClicked: app.emailAgent.synchronize(page.accountId)
             }
+            MenuItem {
+                text: qsTr("New mail")
+                onClicked: app.compose(page.accountId)
+            }
         }
 
         ViewPlaceholder {

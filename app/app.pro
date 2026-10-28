@@ -5,7 +5,9 @@ CONFIG += sailfishapp
 
 include(../core/core.pri)
 
-HEADERS += src/messagebody.h
+HEADERS += \
+    src/addresses.h \
+    src/messagebody.h
 SOURCES += \
     src/main.cpp \
     src/messagebody.cpp
@@ -17,9 +19,9 @@ DISTFILES += \
     qml/posthoorn.qml \
     qml/cover/CoverPage.qml \
     qml/pages/AccountsPage.qml \
+    qml/pages/ComposePage.qml \
     qml/pages/FoldersPage.qml \
     qml/pages/MessagesPage.qml \
     qml/pages/MessagePage.qml \
     qml/pages/MoveToPage.qml \
-    qml/pages/OpenLinkDialog.qml \
-    qml/pages/SelectionPage.qml
+    qml/pages/OpenLinkDialog.qml

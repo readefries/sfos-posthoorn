@@ -104,6 +104,11 @@ Page {
                 text: qsTr("Sync")
                 onClicked: page.sync()
             }
+            MenuItem {
+                visible: !page.selecting
+                text: qsTr("New mail")
+                onClicked: app.compose(page.accountId)
+            }
         }
 
         PushUpMenu {

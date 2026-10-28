@@ -48,6 +48,11 @@ Page {
                 text: qsTr("Sync inboxes")
                 onClicked: app.emailAgent.accountsSyncInbox()
             }
+            MenuItem {
+                visible: list.count > 0
+                text: qsTr("New mail")
+                onClicked: app.compose(0)
+            }
         }
 
         ViewPlaceholder {

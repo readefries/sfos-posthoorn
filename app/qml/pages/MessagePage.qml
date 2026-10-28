@@ -54,20 +54,88 @@ Page {
             body.forceActiveFocus()
     }
 
+    RemorsePopup {
+        id: remorse
+    }
+
+    function prefixed(prefix, pattern) {
+        return pattern.test(message.subject) ? message.subject : prefix + message.subject
+    }
+
+    function dateText() {
+        return Format.formatDate(message.date, Formatter.DateMedium) + " "
+                + Format.formatDate(message.date, Formatter.TimeValue)
+    }
+
+    // A real array: QStringList properties come as sequences, which concat takes as one element.
+    function array(list) {
+        var result = []
+        for (var i = 0; i < list.length; ++i)
+            result.push(list[i])
+        return result
+    }
+
+    // Quotes only the selected text when there is a selection.
+    function reply(all) {
+        var selection = body.selectedText
+        var sender = message.replyTo.length > 0 ? message.replyTo : message.from
+        var to = [sender]
+        var cc = []
+        if (all) {
+            var own = array(app.accounts.allEmailAddresses())
+            to = array(Addresses.without(to.concat(array(message.to)), own))
+            cc = array(Addresses.without(array(message.cc), own.concat(to)))
+            // Replying to all on a mail of one's own.
+            if (to.length === 0)
+                to = [sender]
+        }
+        pageStack.push(Qt.resolvedUrl("ComposePage.qml"), {
+                           from: message.recipientAddress || message.accountAddress,
+                           to: to.join(", "),
+                           cc: cc.join(", "),
+                           //: Prefix for the subject of a reply
+                           subject: prefixed(qsTr("Re: "), /^\s*(re|aw|antw|sv|vs):/i),
+                           responseType: all ? EmailMessage.ReplyToAll : EmailMessage.Reply,
+                           originalMessageId: page.messageId,
+                           //: Introduces the quote in a reply. %1 is the date and time, %2 the sender.
+                           attribution: qsTr("On %1, %2 wrote:").arg(dateText())
+                                        .arg(message.fromDisplayName || message.fromAddress),
+                           quote: selection.length > 0 ? formatted.quoteSelection(selection)
+                                                       : formatted.quoted(false),
+                           quoteWithEarlier: selection.length > 0 ? "" : formatted.quoted(true)
+                       })
+    }
+
+    function forward() {
+        var header = [qsTr("---------- Forwarded message ----------"),
+                      qsTr("From: %1").arg(message.from),
+                      qsTr("Date: %1").arg(dateText()),
+                      qsTr("Subject: %1").arg(message.subject),
+                      qsTr("To: %1").arg(message.to.join(", "))]
+        if (message.cc.length > 0)
+            header.push(qsTr("Cc: %1").arg(message.cc.join(", ")))
+        pageStack.push(Qt.resolvedUrl("ComposePage.qml"), {
+                           from: message.recipientAddress || message.accountAddress,
+                           //: Prefix for the subject of a forwarded mail
+                           subject: prefixed(qsTr("Fwd: "), /^\s*(fwd?|wg|doorst):/i),
+                           responseType: EmailMessage.Forward,
+                           originalMessageId: page.messageId,
+                           forwarded: header.join("\n") + "\n\n" + formatted.plainContent(),
+                           originalHasAttachments: message.numberOfAttachments > 0
+                       })
+    }
+
     SilicaFlickable {
-        anchors.fill: parent
+        anchors {
+            top: parent.top
+            left: parent.left
+            right: parent.right
+            bottom: actions.top
+        }
+        clip: true
         contentHeight: column.height + Theme.paddingLarge
 
         PullDownMenu {
-            MenuItem {
-                text: qsTr("Quote selection")
-                enabled: body.selectedText.length > 0
-                onClicked: pageStack.push(Qt.resolvedUrl("SelectionPage.qml"), {
-                                              sender: message.fromDisplayName || message.fromAddress,
-                                              date: message.date,
-                                              selection: body.selectedText
-                                          })
-            }
             MenuItem {
                 visible: message.contentType === EmailMessage.HTML
                 text: page.preferTextPart ? qsTr("Use HTML part") : qsTr("Use text part")
@@ -223,5 +291,48 @@ Page {
         }
 
         VerticalScrollDecorator { }
+    }
+
+    Item {
+        id: actions
+        anchors {
+            left: parent.left
+            right: parent.right
+            bottom: parent.bottom
+        }
+        height: Theme.itemSizeLarge
+
+        PanelBackground {
+            anchors.fill: parent
+        }
+
+        Row {
+            anchors.centerIn: parent
+            spacing: Theme.paddingLarge * 2
+
+            IconButton {
+                icon.source: "image://theme/icon-m-message-reply"
+                enabled: page.loaded
+                onClicked: page.reply(false)
+            }
+            IconButton {
+                visible: message.multipleRecipients
+                icon.source: "image://theme/icon-m-message-reply-all"
+                enabled: page.loaded
+                onClicked: page.reply(true)
+            }
+            IconButton {
+                icon.source: "image://theme/icon-m-message-forward"
+                enabled: page.loaded
+                onClicked: page.forward()
+            }
+            IconButton {
+                icon.source: "image://theme/icon-m-delete"
+                onClicked: remorse.execute(qsTr("Deleting"), function() {
+                    app.emailAgent.deleteMessage(page.messageId)
+                    pageStack.pop()
+                })
+            }
+        }
     }
 }

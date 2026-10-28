@@ -16,12 +16,22 @@ ApplicationWindow {
         id: agent
         onError: Notices.show(qsTr("Sync failed for an account (error %1)").arg(syncError),
                               Notice.Long, Notice.Center)
+        onSendCompleted: Notices.show(success ? qsTr("Mail sent")
+                                              : qsTr("Sending failed, the mail is in the Outbox"),
+                                      success ? Notice.Short : Notice.Long, Notice.Center)
     }
 
     EmailAccountListModel {
         id: accountModel
         onNumberOfAccountsChanged: console.log("accounts:", numberOfAccounts)
         Component.onCompleted: console.log("accounts at start:", numberOfAccounts)
+    }
+
+    // A new mail from accountId, or from the first account for 0.
+    function compose(accountId) {
+        var from = accountId > 0 ? accountModel.emailAddressFromAccountId(accountId)
+                                 : accountModel.numberOfAccounts > 0 ? accountModel.emailAddress(0) : ""
+        pageStack.push(Qt.resolvedUrl("pages/ComposePage.qml"), { from: from })
     }
 
     initialPage: Component { AccountsPage { } }

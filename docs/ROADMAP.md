@@ -62,13 +62,20 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 
 ### 4. Compose
 
-- Quotes are sent as `>` lines (with format=flowed, so receivers rewrap them), but shown in the
-  composer the way the reader shows quotes, not as raw `>` characters.
-- Clean quoting: an attribution line ("On …, … wrote:"), `>` quoting of the original as plain
-  text, the sender's signature and old nested quotes trimmed, reply above or below the quote,
-  format=flowed.
-- Replying with only the selected text quoted.
-- Identities, attachments.
+- ✓ New mail, reply, reply all, forward (text only), from the message page's action bar and the
+  pulleys. From picks among the accounts' addresses and aliases; a reply defaults to the address
+  the mail was sent to. Reply all leaves out one's own addresses.
+- ✓ Quoting: an attribution line, the original as `>` lines without the sender's signature and,
+  unless asked for, without what it quoted itself; shown the way the reader shows quotes. Reply
+  above (default) or below the quote, or without it.
+- ✓ Replying to a selection quotes only that.
+- ✓ The account's signature, drafts when leaving with text, a notice when sending finished.
+- Attachments: adding files, and sending the original's along when forwarding.
+- format=flowed. The plugin sends `text/plain` without it, so for now paragraphs go out as single
+  lines; flowed text needs building the message with QMF in C++.
+- Recipient suggestions from Contacts (needs the Contacts permission).
+- Opening a draft in the composer again.
+- A "Binding loop detected for property canNavigateForward" warning from the compose Dialog.
 
 ### 5. PGP
 
