@@ -25,6 +25,7 @@ DISTFILES += \
     qml/posthoorn.qml \
     qml/cover/CoverPage.qml \
     qml/pages/AccountsPage.qml \
+    qml/pages/AttachmentItem.qml \
     qml/pages/ComposePage.qml \
     qml/pages/FoldersPage.qml \
     qml/pages/MessagesPage.qml \

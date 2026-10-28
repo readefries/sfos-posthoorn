@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import QtQuick 2.0
 import Sailfish.Silica 1.0
+import Sailfish.Pickers 1.0
 import Nemo.Email 0.1
 import Posthoorn 1.0
 
@@ -27,8 +28,6 @@ Dialog {
     property string quoteWithEarlier
     // Forward: the original with a short header, not quoted.
     property string forwarded
-    // Forward: the original has attachments, which aren't sent along yet.
-    property bool originalHasAttachments: false
 
     property bool includeQuote: true
     property bool keepEarlierQuotes: false
@@ -41,6 +40,55 @@ Dialog {
     readonly property string quoteBlock: forwarded.length > 0 ? forwarded
                                        : includeQuote && currentQuote.length > 0
                                          ? attribution + "\n" + currentQuote : ""
+
+    // Forwarding sends the original's attachments along, except those removed here. They're
+    // downloaded first.
+    readonly property bool forwarding: responseType === EmailMessage.Forward && originalMessageId > 0
+    property var leftOut: []
+    // Bumped when the original's attachments may have changed: the model's methods don't notify.
+    property int attachmentsVersion
+
+    function forwardedLocations() {
+        var locations = []
+        var model = original.attachmentModel
+        for (var i = 0; forwarding && i < model.count; ++i) {
+            var location = model.location(i)
+            if (leftOut.indexOf(location) < 0)
+                locations.push(location)
+        }
+        return locations
+    }
+
+    readonly property bool forwardReady: {
+        attachmentsVersion
+        var model = original.attachmentModel
+        for (var i = 0; forwarding && i < model.count; ++i) {
+            if (leftOut.indexOf(model.location(i)) < 0 && !model.isDownloaded(i))
+                return false
+        }
+        return true
+    }
+
+    readonly property real totalSize: {
+        attachmentsVersion
+        var size = 0
+        for (var i = 0; i < files.count; ++i)
+            size += files.get(i).fileSize
+        var model = original.attachmentModel
+        for (var j = 0; forwarding && j < model.count; ++j) {
+            if (leftOut.indexOf(model.location(j)) < 0)
+                size += model.size(j)
+        }
+        return size
+    }
+
+    function hasFile(path) {
+        for (var i = 0; i < files.count; ++i) {
+            if (files.get(i).filePath === path)
+                return true
+        }
+        return false
+    }
 
     readonly property int accountId: identities.accountId(fromBox.currentIndex)
     readonly property string signature: accountId > 0 && app.accounts.appendSignature(accountId)
@@ -61,7 +109,7 @@ Dialog {
     readonly property bool recipientsValid: allValid(toField.text) && allValid(ccField.text)
                                             && allValid(bccField.text)
 
-    canAccept: hasRecipients && recipientsValid
+    canAccept: hasRecipients && recipientsValid && forwardReady
 
     function composedBody() {
         var own = body.text.replace(/\s+$/, "")
@@ -81,6 +129,11 @@ Dialog {
         message.body = composedBody()
         message.responseType = responseType
         message.originalMessageId = originalMessageId
+        var paths = []
+        for (var i = 0; i < files.count; ++i)
+            paths.push(files.get(i).filePath)
+        message.attachments = paths
+        message.forwardedParts = forwardedLocations()
     }
 
     onAccepted: {
@@ -89,11 +142,12 @@ Dialog {
         if (accountId > 0)
             app.emailAgent.processSendingQueue(accountId)
         else
-            Notices.show(qsTr("The mail couldn't be put in the Outbox"), Notice.Long, Notice.Center)
+            Notices.show(qsTr("The mail couldn't be put in the Outbox: %1").arg(outgoing.error),
+                         Notice.Long, Notice.Center)
     }
 
     onRejected: {
-        if (discarded || body.text.trim().length === 0)
+        if (discarded || (body.text.trim().length === 0 && files.count === 0))
             return
         fill(outgoing)
         var accountId = outgoing.saveDraft()
@@ -101,7 +155,8 @@ Dialog {
             app.emailAgent.exportUpdates(accountId)
             Notices.show(qsTr("Saved to Drafts"), Notice.Short, Notice.Center)
         } else {
-            Notices.show(qsTr("The draft couldn't be saved"), Notice.Long, Notice.Center)
+            Notices.show(qsTr("The draft couldn't be saved: %1").arg(outgoing.error),
+                         Notice.Long, Notice.Center)
         }
     }
 
@@ -113,6 +168,42 @@ Dialog {
             toField.forceActiveFocus()
         else
             body.forceActiveFocus()
+        // Into the mail store only, unlike downloading an attachment, which saves it in Downloads
+        // too.
+        if (forwarding && !forwardReady)
+            original.downloadMessage()
+    }
+
+    EmailMessage {
+        id: original
+        messageId: dialog.forwarding ? dialog.originalMessageId : 0
+        onMessageDownloaded: dialog.attachmentsVersion++
+        onAttachmentsChanged: dialog.attachmentsVersion++
+        onStoredMessageChanged: dialog.attachmentsVersion++
+        onMessageDownloadFailed: Notices.show(qsTr("The original's attachments couldn't be downloaded"),
+                                              Notice.Long, Notice.Center)
+    }
+
+    // Files to attach: fileName, filePath, fileSize.
+    ListModel {
+        id: files
+    }
+
+    Component {
+        id: filePicker
+        MultiContentPickerDialog {
+            title: qsTr("Attach")
+            // Set once the picker is accepted.
+            onSelectedContentChanged: {
+                for (var i = 0; i < selectedContent.count; ++i) {
+                    var item = selectedContent.get(i)
+                    if (!dialog.hasFile(item.filePath)) {
+                        files.append({ fileName: item.fileName, filePath: item.filePath,
+                                       fileSize: item.fileSize })
+                    }
+                }
+            }
+        }
     }
 
     OutgoingMessage {
@@ -162,6 +253,10 @@ Dialog {
                 visible: dialog.quoteBlock.length > 0
                 text: dialog.writeBelowQuote ? qsTr("Write above the quote") : qsTr("Write below the quote")
                 onClicked: dialog.writeBelowQuote = !dialog.writeBelowQuote
+            }
+            MenuItem {
+                text: qsTr("Add attachment")
+                onClicked: pageStack.push(filePicker)
             }
             MenuItem {
                 visible: !dialog.showCcBcc
@@ -240,6 +335,42 @@ Dialog {
                 EnterKey.onClicked: body.forceActiveFocus()
             }
 
+            SectionHeader {
+                visible: files.count > 0 || (dialog.forwarding && original.attachmentModel.count > dialog.leftOut.length)
+                text: qsTr("Attachments, %1").arg(Format.formatFileSize(dialog.totalSize))
+            }
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: dialog.totalSize > 20 * 1024 * 1024
+                text: qsTr("Mail servers often refuse mail this large.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.secondaryHighlightColor
+            }
+            Repeater {
+                model: files
+                AttachmentItem {
+                    name: model.fileName
+                    size: model.fileSize
+                    onRemoveRequested: files.remove(index)
+                }
+            }
+            Repeater {
+                model: dialog.forwarding ? original.attachmentModel : null
+                AttachmentItem {
+                    visible: dialog.leftOut.indexOf(model.contentLocation) < 0
+                    name: model.displayName
+                    size: model.size
+                    status: model.downloaded ? "" : qsTr("Downloading…")
+                    onRemoveRequested: {
+                        var leftOut = dialog.leftOut.slice()
+                        leftOut.push(model.contentLocation)
+                        dialog.leftOut = leftOut
+                    }
+                }
+            }
+
             Label {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
@@ -279,16 +410,6 @@ Dialog {
                 wrapMode: Text.Wrap
                 textFormat: Text.RichText
                 text: formattedQuote.text
-            }
-
-            Label {
-                x: Theme.horizontalPageMargin
-                width: parent.width - 2 * Theme.horizontalPageMargin
-                visible: dialog.originalHasAttachments
-                text: qsTr("The original's attachments aren't sent along yet.")
-                wrapMode: Text.Wrap
-                font.pixelSize: Theme.fontSizeExtraSmall
-                color: Theme.secondaryHighlightColor
             }
         }
 

@@ -120,8 +120,7 @@ Page {
                            subject: prefixed(qsTr("Fwd: "), /^\s*(fwd?|wg|doorst):/i),
                            responseType: EmailMessage.Forward,
                            originalMessageId: page.messageId,
-                           forwarded: header.join("\n") + "\n\n" + formatted.plainContent(),
-                           originalHasAttachments: message.numberOfAttachments > 0
+                           forwarded: header.join("\n") + "\n\n" + formatted.plainContent()
                        })
     }
 

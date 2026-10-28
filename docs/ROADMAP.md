@@ -72,7 +72,9 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   above (default) or below the quote, or without it.
 - ✓ Replying to a selection quotes only that.
 - ✓ The account's signature, drafts when leaving with text, a notice when sending finished.
-- Attachments: adding files, and sending the original's along when forwarding.
+- ✓ Attachments: adding files with the content picker, sending the original's along when
+  forwarding (downloaded into the mail store first, not into Downloads), removing them again.
+- Opening and saving the attachments of received mail.
 - ✓ Our own message builder (`OutgoingMessage`, with QMF): the text goes out as
   `text/plain; charset=UTF-8; format=flowed`, quoted-printable, instead of the plugin's base64
   without flowed. Stored, sent and saved as drafts the way the plugin does.

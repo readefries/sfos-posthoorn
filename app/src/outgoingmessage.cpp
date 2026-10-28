@@ -7,6 +7,8 @@
 #include <qmaildisconnected.h>
 #include <qmailstore.h>
 
+#include <QFileInfo>
+
 namespace {
 
 // The enabled account that address belongs to, as its main address or one of its aliases, and
@@ -109,14 +111,41 @@ void OutgoingMessage::setOriginalMessageId(int id)
     }
 }
 
-bool OutgoingMessage::build(QMailMessage *message) const
+void OutgoingMessage::setAttachments(const QStringList &paths)
 {
+    if (paths != m_attachments) {
+        m_attachments = paths;
+        emit changed();
+    }
+}
+
+void OutgoingMessage::setForwardedParts(const QStringList &locations)
+{
+    if (locations != m_forwardedParts) {
+        m_forwardedParts = locations;
+        emit changed();
+    }
+}
+
+bool OutgoingMessage::fail(const QString &error)
+{
+    qWarning("%s", qPrintable(error));
+    m_error = error;
+    emit errorChanged();
+    return false;
+}
+
+bool OutgoingMessage::build(QMailMessage *message)
+{
+    if (!m_error.isEmpty()) {
+        m_error.clear();
+        emit errorChanged();
+    }
+
     QMailAddress sender;
     const QMailAccount account = accountFor(m_from, &sender);
-    if (!account.id().isValid()) {
-        qWarning("no enabled account sends from %s", qPrintable(m_from));
-        return false;
-    }
+    if (!account.id().isValid())
+        return fail(tr("No account sends from %1").arg(m_from));
 
     message->setMessageType(QMailMessage::Email);
     message->setParentAccountId(account.id());
@@ -133,12 +162,37 @@ bool OutgoingMessage::build(QMailMessage *message) const
     message->setBody(QMailMessageBody::fromData(FlowedText::encode(m_body), type,
                                                 QMailMessageBody::QuotedPrintable));
 
-    const QMailMessageId original(m_originalMessageId);
-    if (original.isValid()) {
-        message->setInResponseTo(original);
+    const QMailMessageId originalId(m_originalMessageId);
+    QMailMessage original;
+    if (originalId.isValid()) {
+        original = QMailMessage(originalId);
+        message->setInResponseTo(originalId);
         message->setResponseType(static_cast<QMailMessage::ResponseType>(m_responseType));
         // In-Reply-To and References, so clients show the reply in its thread.
-        message->setReplyReferences(QMailMessage(original));
+        message->setReplyReferences(original);
+    }
+
+    // Both turn the message into multipart/mixed, with the text as its first part. Rather not
+    // sent than sent without what it says is attached.
+    if (!m_forwardedParts.isEmpty()) {
+        QList<const QMailMessagePart *> parts;
+        for (const QString &location : m_forwardedParts) {
+            const QMailMessagePart::Location partLocation(location);
+            if (!original.contains(partLocation))
+                return fail(tr("An attachment of the original is gone"));
+            const QMailMessagePart &part = original.partAt(partLocation);
+            if (!part.hasBody())
+                return fail(tr("%1 hasn't been downloaded").arg(part.displayName()));
+            parts.append(&part);
+        }
+        message->setAttachments(parts);
+    }
+    if (!m_attachments.isEmpty()) {
+        for (const QString &path : m_attachments) {
+            if (!QFileInfo(path).isFile())
+                return fail(tr("%1 can't be found").arg(QFileInfo(path).fileName()));
+        }
+        message->addAttachments(m_attachments);
     }
 
     message->setStatus(QMailMessage::ContentAvailable, true);

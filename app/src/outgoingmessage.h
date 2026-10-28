@@ -28,6 +28,13 @@ class OutgoingMessage : public QObject
     Q_PROPERTY(int responseType READ responseType WRITE setResponseType NOTIFY changed)
     // The mail replied to or forwarded, 0 for none.
     Q_PROPERTY(int originalMessageId READ originalMessageId WRITE setOriginalMessageId NOTIFY changed)
+    // Paths of files to attach.
+    Q_PROPERTY(QStringList attachments READ attachments WRITE setAttachments NOTIFY changed)
+    // Attachments of the original to send along, as the email plugin's part locations. They must
+    // have been downloaded.
+    Q_PROPERTY(QStringList forwardedParts READ forwardedParts WRITE setForwardedParts NOTIFY changed)
+    // Why the last send() or saveDraft() failed.
+    Q_PROPERTY(QString error READ error NOTIFY errorChanged)
 
 public:
     explicit OutgoingMessage(QObject *parent = nullptr);
@@ -48,6 +55,11 @@ public:
     void setResponseType(int type);
     int originalMessageId() const { return m_originalMessageId; }
     void setOriginalMessageId(int id);
+    QStringList attachments() const { return m_attachments; }
+    void setAttachments(const QStringList &paths);
+    QStringList forwardedParts() const { return m_forwardedParts; }
+    void setForwardedParts(const QStringList &locations);
+    QString error() const { return m_error; }
 
     // Puts the message in the outbox. Returns its account's id, 0 when it couldn't be stored.
     Q_INVOKABLE int send();
@@ -57,9 +69,11 @@ public:
 
 signals:
     void changed();
+    void errorChanged();
 
 private:
-    bool build(QMailMessage *message) const;
+    bool build(QMailMessage *message);
+    bool fail(const QString &error);
 
     QString m_from;
     QStringList m_to;
@@ -69,6 +83,9 @@ private:
     QString m_body;
     int m_responseType = 0;
     int m_originalMessageId = 0;
+    QStringList m_attachments;
+    QStringList m_forwardedParts;
+    QString m_error;
     QMailMessageId m_draftId;
 };
 

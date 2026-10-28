@@ -11,7 +11,8 @@ Exec=posthoorn
 # backend the stock Email app uses, plus internet and GnuPG. Accounts is needed too: on Sailfish
 # QMF keeps its mail accounts in the system accounts database, not in the mail store. That database
 # lives in the privileged data directory, which only Privileged apps can open (this is also what
-# keeps the app out of Harbour).
-Permissions=Email;Accounts;Privileged
+# keeps the app out of Harbour). UserDirs, RemovableMedia and MediaIndexing are for picking files
+# to attach: the content picker finds them through the media index.
+Permissions=Email;Accounts;Privileged;UserDirs;RemovableMedia;MediaIndexing
 OrganizationName=nl.readefries
 ApplicationName=posthoorn
