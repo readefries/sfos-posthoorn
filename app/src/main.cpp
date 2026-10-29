@@ -7,6 +7,7 @@
 #include "appstate.h"
 #include "messagebody.h"
 #include "outgoingmessage.h"
+#include "unifiedmessagelistmodel.h"
 
 #include <sailfishapp.h>
 
@@ -72,6 +73,7 @@ int main(int argc, char *argv[])
 
     qmlRegisterType<MessageBody>("Posthoorn", 1, 0, "MessageBody");
     qmlRegisterType<OutgoingMessage>("Posthoorn", 1, 0, "OutgoingMessage");
+    qmlRegisterType<UnifiedMessageListModel>("Posthoorn", 1, 0, "UnifiedMessageListModel");
     qmlRegisterSingletonType<AppState>("Posthoorn", 1, 0, "AppState",
                                        [](QQmlEngine *, QJSEngine *) -> QObject * {
                                            return new AppState;

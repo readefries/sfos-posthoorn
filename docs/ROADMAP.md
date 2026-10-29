@@ -56,12 +56,11 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - ✓ "Mark all as read" in a folder's pulley (covers the messages loaded in the list).
 - ✓ Move to a folder of the same account, from the list and from an open mail.
 - Folders as part of the flow: folder drawer per account, favourites.
-- A unified inbox that can be configured: by default the inboxes of all accounts, but folders can
-  be added to it and removed from it (any folder of any account, e.g. a "Family" folder, or
-  leaving out a work inbox). Also with a single account, where it's just the inbox plus the folders
-  added. Bulk actions on it; moving needs a target per account, as QMF moves within one.
-  The plugin's combined inbox is inboxes only, so this needs our own message list: QMF's
-  `QMailMessageListModel` with a key on the chosen folders.
+- ✓ A unified inbox that can be configured: by default the inboxes of all accounts (also ones
+  added later), with any folder of any account added or left out. Also there with a single
+  account. Messages outside an inbox show their folder. Bulk moving works when the selection is
+  in one account. Its own model (`UnifiedMessageListModel`, on QMF's `QMailMessageListModel`),
+  as the plugin's combined inbox is inboxes only and its model's header isn't public.
 - Moving mail between accounts: QMF only moves within one, so copy to the other account, then
   delete.
 - ✓ Start where the app was left: the last folder (or account) opens again after a restart.

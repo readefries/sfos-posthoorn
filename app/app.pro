@@ -11,12 +11,14 @@ HEADERS += \
     src/addresses.h \
     src/appstate.h \
     src/messagebody.h \
-    src/outgoingmessage.h
+    src/outgoingmessage.h \
+    src/unifiedmessagelistmodel.h
 SOURCES += \
     src/appstate.cpp \
     src/main.cpp \
     src/messagebody.cpp \
-    src/outgoingmessage.cpp
+    src/outgoingmessage.cpp \
+    src/unifiedmessagelistmodel.cpp
 
 SAILFISHAPP_ICONS = 86x86 108x108 128x128 172x172
 
@@ -32,4 +34,5 @@ DISTFILES += \
     qml/pages/MessagePage.qml \
     qml/pages/MoveToPage.qml \
     qml/pages/OpenLinkDialog.qml \
-    qml/pages/ReceivedAttachmentItem.qml
+    qml/pages/ReceivedAttachmentItem.qml \
+    qml/pages/UnifiedFoldersPage.qml

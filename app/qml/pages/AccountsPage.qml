@@ -8,17 +8,20 @@ Page {
 
     property bool restored: false
 
+    function openUnified(operation) {
+        pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
+                           unified: true,
+                           title: qsTr("Unified inbox")
+                       }, operation)
+    }
+
     // Opens the folder or account the app was left in.
     function restore() {
         var accountId = AppState.accountId
-        if (AppState.page === "messages" && accountId === 0) {
-            // The combined inbox is only offered with more than one account.
-            if (app.accounts.numberOfAccounts > 1) {
-                pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
-                                   title: qsTr("All inboxes"),
-                                   accessor: app.emailAgent.combinedInboxAccessor()
-                               }, PageStackAction.Immediate)
-            }
+        // "messages" without an account was the plugin's combined inbox, before the unified one.
+        if (AppState.page === "unified" || (AppState.page === "messages" && accountId === 0)) {
+            if (app.accounts.numberOfAccounts > 0)
+                openUnified(PageStackAction.Immediate)
         } else if ((AppState.page === "folders" || AppState.page === "messages")
                    && app.accounts.indexFromAccountId(accountId) >= 0) {
             pageStack.push(Qt.resolvedUrl("FoldersPage.qml"), {
@@ -53,13 +56,11 @@ Page {
             }
 
             BackgroundItem {
-                id: allInboxes
-                visible: list.count > 1
-                onClicked: pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
-                                              title: qsTr("All inboxes"),
-                                              accessor: app.emailAgent.combinedInboxAccessor()
-                                          })
-                Label {
+                id: unifiedInbox
+                visible: list.count > 0
+                height: Theme.itemSizeMedium
+                onClicked: page.openUnified(PageStackAction.Animated)
+                Column {
                     anchors {
                         left: parent.left
                         right: parent.right
@@ -67,8 +68,20 @@ Page {
                         rightMargin: Theme.horizontalPageMargin
                         verticalCenter: parent.verticalCenter
                     }
-                    text: qsTr("All inboxes")
-                    color: allInboxes.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    Label {
+                        width: parent.width
+                        text: qsTr("Unified inbox")
+                        color: unifiedInbox.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    }
+                    Label {
+                        width: parent.width
+                        text: AppState.unifiedConfigured
+                              ? qsTr("%n folder(s)", "", app.unifiedFolders.length)
+                              : qsTr("The inboxes of all accounts")
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.secondaryColor
+                        truncationMode: TruncationMode.Fade
+                    }
                 }
             }
         }
