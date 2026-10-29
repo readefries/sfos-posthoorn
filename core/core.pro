@@ -7,9 +7,11 @@ QT = core
 
 HEADERS += \
     flowedtext.h \
+    linkcleaner.h \
     mailaddresses.h \
     mailcontent.h
 SOURCES += \
     flowedtext.cpp \
+    linkcleaner.cpp \
     mailaddresses.cpp \
     mailcontent.cpp

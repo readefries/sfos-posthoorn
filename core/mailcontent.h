@@ -69,7 +69,8 @@ struct MailContent
     static QString quoteLines(const QString &text);
 
     // Tolerant of broken HTML. Leaves out what a reader wouldn't see: scripts, styles, the head,
-    // hidden elements (preheaders) and tracking pixels.
+    // hidden elements (preheaders) and tracking pixels, and images from tracking services. Takes
+    // tracking parameters out of image addresses.
     static MailContent fromHtml(const QString &html);
     // Lines starting with '>' become quote levels, URLs and mail addresses become links.
     static MailContent fromPlainText(const QString &text);

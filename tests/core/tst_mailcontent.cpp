@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "flowedtext.h"
+#include "linkcleaner.h"
 #include "mailaddresses.h"
 #include "mailcontent.h"
 
@@ -105,6 +106,10 @@ private slots:
     void flowedWraps();
     void flowedQuotes();
     void flowedSpecialLines();
+    void trackingImagesLeftOut();
+    void cleanLinks_data();
+    void cleanLinks();
+    void trackingImages();
 };
 
 void TestMailContent::paragraphsAndWhitespace()
@@ -448,6 +453,75 @@ void TestMailContent::flowedSpecialLines()
 {
     QCOMPARE(FlowedText::encode(QStringLiteral(" indented\nFrom here on\nFromage\n-- \nJan")),
              QStringLiteral("  indented\n From here on\nFromage\n-- \nJan"));
+}
+
+void TestMailContent::trackingImagesLeftOut()
+{
+    const MailContent content = MailContent::fromHtml(QStringLiteral(
+            "<p><img src=\"https://u1.ct.sendgrid.net/wf/open?upn=x\" width=\"10\" height=\"10\">"
+            "<img src=\"https://cdn.example.org/a.png?utm_source=news&amp;w=600\" alt=\"A\"></p>"));
+    QCOMPARE(content.images.size(), 1);
+    QCOMPARE(content.images.first().source, QStringLiteral("https://cdn.example.org/a.png?w=600"));
+}
+
+void TestMailContent::cleanLinks_data()
+{
+    QTest::addColumn<QString>("input");
+    QTest::addColumn<QString>("expected");
+    QTest::addColumn<bool>("unwrapped");
+    QTest::addColumn<bool>("stripped");
+
+    QTest::newRow("untouched") << "https://example.org/a?id=3#top" << "https://example.org/a?id=3#top" << false << false;
+    QTest::newRow("not web") << "mailto:jan@example.org?subject=utm_source" << "mailto:jan@example.org?subject=utm_source"
+                             << false << false;
+    QTest::newRow("utm") << "https://example.org/a?utm_source=news&id=3&utm_medium=mail#top"
+                         << "https://example.org/a?id=3#top" << false << true;
+    QTest::newRow("only tracking") << "https://example.org/?fbclid=abc&mc_eid=1&_hsenc=x"
+                                   << "https://example.org/" << false << true;
+    QTest::newRow("keeps encoding") << "https://example.org/s?q=a%26b%3Dc&gclid=1&next=%2Fhome"
+                                    << "https://example.org/s?q=a%26b%3Dc&next=%2Fhome" << false << true;
+    QTest::newRow("safe links")
+            << "https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fexample.org%2Fpage%3Fx%3D1%26utm_campaign%3Dy&data=05%7C01&reserved=0"
+            << "https://example.org/page?x=1" << true << true;
+    QTest::newRow("google") << "https://www.google.com/url?q=https://example.org/&sa=D&ust=1"
+                            << "https://example.org/" << true << false;
+    QTest::newRow("facebook") << "https://l.facebook.com/l.php?u=https%3A%2F%2Fexample.org%2F%3Fa%3D1&h=AT0"
+                              << "https://example.org/?a=1" << true << false;
+    QTest::newRow("proofpoint v2")
+            << "https://urldefense.proofpoint.com/v2/url?u=https-3A__example.org_path_page.html&d=DwMF&c=abc"
+            << "https://example.org/path/page.html" << true << false;
+    QTest::newRow("proofpoint v3")
+            << "https://urldefense.com/v3/__https://example.org/path?a=1__;!!AbCdE!xyz$"
+            << "https://example.org/path?a=1" << true << false;
+    QTest::newRow("nested")
+            << "https://nam02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.google.com%2Furl%3Fq%3Dhttps%3A%2F%2Fexample.org%2F"
+            << "https://example.org/" << true << false;
+    QTest::newRow("not a redirect") << "https://www.google.com/search?q=https://example.org"
+                                    << "https://www.google.com/search?q=https://example.org" << false << false;
+}
+
+void TestMailContent::cleanLinks()
+{
+    QFETCH(QString, input);
+    QFETCH(QString, expected);
+    QFETCH(bool, unwrapped);
+    QFETCH(bool, stripped);
+    const LinkCleaner::Result result = LinkCleaner::clean(input);
+    QCOMPARE(result.url, expected);
+    QCOMPARE(result.unwrapped, unwrapped);
+    QCOMPARE(result.stripped, stripped);
+}
+
+void TestMailContent::trackingImages()
+{
+    QVERIFY(LinkCleaner::isTrackingImage(QStringLiteral("https://www.google-analytics.com/collect?v=1")));
+    QVERIFY(LinkCleaner::isTrackingImage(QStringLiteral("https://u123.ct.sendgrid.net/wf/open?upn=abc")));
+    QVERIFY(LinkCleaner::isTrackingImage(QStringLiteral("https://mandrillapp.com/track/open.php?u=1")));
+    QVERIFY(LinkCleaner::isTrackingImage(QStringLiteral("https://news.example.org/e/o/eyJ")));
+    QVERIFY(LinkCleaner::isTrackingImage(QStringLiteral("https://www.facebook.com/tr?id=1&ev=PageView")));
+    QVERIFY(!LinkCleaner::isTrackingImage(QStringLiteral("https://cdn.example.org/images/logo.png")));
+    QVERIFY(!LinkCleaner::isTrackingImage(QStringLiteral("https://www.facebook.com/images/fb_icon.png")));
+    QVERIFY(!LinkCleaner::isTrackingImage(QStringLiteral("data:image/png;base64,AAAA")));
 }
 
 QTEST_APPLESS_MAIN(TestMailContent)

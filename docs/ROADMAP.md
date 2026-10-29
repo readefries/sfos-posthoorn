@@ -36,12 +36,12 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 
 ### 2b. Reader follow-ups
 
-- **Clean links before showing them:** strip tracking parameters (`utm_*`, `fbclid`, `gclid`,
-  `mc_eid`, …) and unwrap redirectors such as Outlook Safe Links
-  (`*.safelinks.protection.outlook.com/?url=…`), so the dialog shows and opens the real target.
-  Keep a way to open the original link.
-- **Images too:** never load images from known tracking hosts, even after "Load images", and drop
-  tracking parameters from image URLs.
+- ✓ Clean links before showing them: redirectors (Outlook Safe Links, Google, Facebook,
+  Proofpoint) unwrapped, tracking parameters (`utm_*`, `fbclid`, `gclid`, `mc_*`, …) taken out;
+  the dialog opens the real target and can still use the original. `core/linkcleaner.cpp`.
+- ✓ Images too: never loaded from known tracking services or mailing services' open trackers,
+  and without tracking parameters when loaded.
+- Not checked on real mail yet: Safe Links and newsletter links from the wild.
 - Rows of small images (social media icons and the like) wrap messily when loaded. Possibly
   group them, or leave them out of "Load images".
 - A coloured bar for quote levels, as FairEmail draws them, if indent and colour aren't enough

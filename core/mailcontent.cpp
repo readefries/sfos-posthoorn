@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "mailcontent.h"
 
+#include "linkcleaner.h"
+
 #include <QHash>
 #include <QRegularExpression>
 #include <QSet>
@@ -708,6 +710,12 @@ void HtmlReader::image(const Attributes &attributes)
     image.remote = remote.match(image.source).hasMatch();
     if (image.source.startsWith(QLatin1String("//")))
         image.source.prepend(QLatin1String("https:"));
+    if (image.remote) {
+        // Never loaded, not even when images are, so not worth a placeholder either.
+        if (LinkCleaner::isTrackingImage(image.source))
+            return;
+        image.source = LinkCleaner::clean(image.source).url;
+    }
     // The email plugin puts cid: in while an inline image is still downloading.
     if (attributes.value(QStringLiteral("nemo-inline-image-loading")) == QLatin1String("yes")
             || (!image.remote && !image.source.startsWith(QLatin1String("data:image/"), Qt::CaseInsensitive)))

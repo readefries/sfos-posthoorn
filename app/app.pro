@@ -10,6 +10,7 @@ include(../core/core.pri)
 HEADERS += \
     src/addresses.h \
     src/appstate.h \
+    src/links.h \
     src/messagebody.h \
     src/outgoingmessage.h \
     src/unifiedmessagelistmodel.h

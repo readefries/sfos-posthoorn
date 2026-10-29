@@ -5,6 +5,7 @@
 
 #include "addresses.h"
 #include "appstate.h"
+#include "links.h"
 #include "messagebody.h"
 #include "outgoingmessage.h"
 #include "unifiedmessagelistmodel.h"
@@ -78,6 +79,10 @@ int main(int argc, char *argv[])
                                        [](QQmlEngine *, QJSEngine *) -> QObject * {
                                            return new AppState;
                                        });
+    qmlRegisterSingletonType<Links>("Posthoorn", 1, 0, "Links",
+                                    [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                        return new Links;
+                                    });
     qmlRegisterSingletonType<Addresses>("Posthoorn", 1, 0, "Addresses",
                                         [](QQmlEngine *, QJSEngine *) -> QObject * {
                                             return new Addresses;
