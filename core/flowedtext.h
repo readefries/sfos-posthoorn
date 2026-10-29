@@ -14,6 +14,10 @@ namespace FlowedText {
 // space; longer words aren't broken. The signature separator "-- " is kept as it is.
 QString encode(const QString &text, int width = 72);
 
+// Joins the lines of flowed text again (RFC 3676, without DelSp): one line per paragraph, "> "
+// in front of quoted ones, as encode() takes it.
+QString decode(const QString &flowed);
+
 } // namespace FlowedText
 
 #endif // FLOWEDTEXT_H

@@ -3,6 +3,7 @@
 #include "linkcleaner.h"
 #include "mailaddresses.h"
 #include "mailcontent.h"
+#include "maildraft.h"
 
 #include <QtTest>
 
@@ -22,42 +23,6 @@ QList<int> levels(const MailContent &content)
     for (const MailBlock &block : content.blocks)
         result.append(block.quoteLevel);
     return result;
-}
-
-// Decodes format=flowed as a reader does (RFC 3676 4.2), back to one line per paragraph.
-QString unflow(const QString &flowed)
-{
-    QStringList paragraphs;
-    QString current;
-    int currentDepth = -1;
-    bool open = false;
-    for (QString line : flowed.split(QLatin1Char('\n'))) {
-        int depth = 0;
-        while (depth < line.size() && line.at(depth) == QLatin1Char('>'))
-            ++depth;
-        line = line.mid(depth);
-        if (line.startsWith(QLatin1Char(' ')))
-            line.remove(0, 1);
-        const bool soft = line.endsWith(QLatin1Char(' ')) && line != QLatin1String("-- ");
-        if (open && depth == currentDepth) {
-            current += line;
-        } else {
-            if (open)
-                paragraphs.append(current);
-            const QString marker = depth > 0 ? QString(depth, QLatin1Char('>')) : QString();
-            current = marker + (depth > 0 && !line.isEmpty() ? QStringLiteral(" ") : QString()) + line;
-            currentDepth = depth;
-        }
-        open = soft;
-        if (!soft) {
-            paragraphs.append(current);
-            current.clear();
-            currentDepth = -1;
-        }
-    }
-    if (open)
-        paragraphs.append(current);
-    return paragraphs.join(QLatin1Char('\n'));
 }
 
 // The spans of a block that are links, as "text -> href".
@@ -106,6 +71,11 @@ private slots:
     void flowedWraps();
     void flowedQuotes();
     void flowedSpecialLines();
+    void flowedDecode();
+    void draftQuoteBelow();
+    void draftWrittenBelow();
+    void draftWithoutQuote();
+    void draftNotOurs();
     void trackingImagesLeftOut();
     void cleanLinks_data();
     void cleanLinks();
@@ -429,7 +399,7 @@ void TestMailContent::flowedWraps()
     }
     QVERIFY(encoded.contains(QLatin1String("https://example.org/a/very/long/link/that/should/never/be/"
                                            "broken/in/the/middle/because/it/would/stop/working ")));
-    QCOMPARE(unflow(encoded), paragraph);
+    QCOMPARE(FlowedText::decode(encoded), paragraph);
 }
 
 void TestMailContent::flowedQuotes()
@@ -446,13 +416,63 @@ void TestMailContent::flowedQuotes()
         if (line.startsWith(QLatin1String(">>")))
             QVERIFY(line.startsWith(QLatin1String(">> ")));
     }
-    QCOMPARE(unflow(encoded), text);
+    QCOMPARE(FlowedText::decode(encoded), text);
 }
 
 void TestMailContent::flowedSpecialLines()
 {
     QCOMPARE(FlowedText::encode(QStringLiteral(" indented\nFrom here on\nFromage\n-- \nJan")),
              QStringLiteral("  indented\n From here on\nFromage\n-- \nJan"));
+}
+
+void TestMailContent::flowedDecode()
+{
+    // Soft breaks are joined, hard ones and quote depth changes end a paragraph, stuffing and
+    // the signature separator survive.
+    QCOMPARE(FlowedText::decode(QStringLiteral(
+                     "One long \r\nparagraph.\n  indented\n> quoted \n> on\n>> deeper\n>\n-- \nJan")),
+             QStringLiteral("One long paragraph.\n indented\n> quoted on\n>> deeper\n>\n-- \nJan"));
+    const QString text = QStringLiteral(" stuffed\nFrom here\n-- \nJan");
+    QCOMPARE(FlowedText::decode(FlowedText::encode(text)), text);
+}
+
+void TestMailContent::draftQuoteBelow()
+{
+    const MailDraft draft = MailDraft::split(QStringLiteral(
+            "Thanks!\n\nSee you\n\n-- \nJan\n\nOn 3 Oct, Piet wrote:\n> hello\n>\n>> older\n"));
+    QCOMPARE(draft.text, QStringLiteral("Thanks!\n\nSee you"));
+    QCOMPARE(draft.signature, QStringLiteral("Jan"));
+    QCOMPARE(draft.attribution, QStringLiteral("On 3 Oct, Piet wrote:"));
+    QCOMPARE(draft.quote, QStringLiteral("> hello\n>\n>> older"));
+    QVERIFY(!draft.writtenBelowQuote);
+}
+
+void TestMailContent::draftWrittenBelow()
+{
+    const MailDraft draft = MailDraft::split(QStringLiteral(
+            "On 3 Oct, Piet wrote:\n> hello\n\nMy answer\n\n-- \nJan"));
+    QCOMPARE(draft.attribution, QStringLiteral("On 3 Oct, Piet wrote:"));
+    QCOMPARE(draft.quote, QStringLiteral("> hello"));
+    QCOMPARE(draft.text, QStringLiteral("My answer"));
+    QCOMPARE(draft.signature, QStringLiteral("Jan"));
+    QVERIFY(draft.writtenBelowQuote);
+}
+
+void TestMailContent::draftWithoutQuote()
+{
+    const MailDraft draft = MailDraft::split(QStringLiteral("Just text\n\n-- \nJan\nCompany"));
+    QCOMPARE(draft.text, QStringLiteral("Just text"));
+    QCOMPARE(draft.signature, QStringLiteral("Jan\nCompany"));
+    QVERIFY(draft.quote.isEmpty());
+}
+
+void TestMailContent::draftNotOurs()
+{
+    // A quote without an introduction, as other clients may leave it: all text.
+    const MailDraft draft = MailDraft::split(QStringLiteral("> quoted\n> more\nmy reply in between\n> more quote"));
+    QCOMPARE(draft.text, QStringLiteral("> quoted\n> more\nmy reply in between\n> more quote"));
+    QVERIFY(draft.quote.isEmpty());
+    QVERIFY(draft.attribution.isEmpty());
 }
 
 void TestMailContent::trackingImagesLeftOut()

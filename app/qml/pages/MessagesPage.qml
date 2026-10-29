@@ -245,9 +245,13 @@ Page {
             openMenuOnPressAndHold: !page.selecting
 
             onClicked: {
-                if (!page.selecting)
-                    pageStack.push(Qt.resolvedUrl("MessagePage.qml"), { messageId: model.messageId })
-                else if (model.selected)
+                if (!page.selecting) {
+                    // A draft is continued rather than read.
+                    if (model.folderId === app.emailAgent.draftsFolderId(model.accountId))
+                        pageStack.push(Qt.resolvedUrl("ComposePage.qml"), { draftId: model.messageId })
+                    else
+                        pageStack.push(Qt.resolvedUrl("MessagePage.qml"), { messageId: model.messageId })
+                } else if (model.selected)
                     messages.deselectMessage(index)
                 else
                     messages.selectMessage(index)

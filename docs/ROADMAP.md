@@ -84,8 +84,12 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   `text/plain; charset=UTF-8; format=flowed`, quoted-printable, instead of the plugin's base64
   without flowed. Stored, sent and saved as drafts the way the plugin does.
 - Recipient suggestions from Contacts (needs the Contacts permission).
-- Opening a draft in the composer again.
+- ✓ Continuing drafts: a tap in Drafts opens the composer with everything back, the quote
+  formatted again (`core/maildraft.cpp` splits the text, `FlowedText::decode` joins flowed lines).
+  Unchanged drafts aren't saved again; saving replaces the old version, sending or "Delete draft"
+  removes it.
 - A "Binding loop detected for property canNavigateForward" warning from the compose Dialog.
+- "Cannot pop while operation is in progress" warnings from the page stack, now and then.
 
 ### 5. PGP
 

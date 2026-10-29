@@ -5,8 +5,9 @@ import Sailfish.Pickers 1.0
 import Nemo.Email 0.1
 import Posthoorn 1.0
 
-// Writing a new mail, a reply or a forward. Accepting sends it; going back keeps it as a draft
-// unless it's discarded from the pulley.
+// Writing a new mail, a reply or a forward, or continuing a draft. Accepting sends it; going
+// back keeps it as a draft unless it's discarded (or for a continued draft, deleted) from the
+// pulley.
 //
 // Quotes are sent as '>' lines, which every mail client understands, but shown here the way the
 // reader shows them. OutgoingMessage sends the text as format=flowed, so clients that know it
@@ -28,12 +29,16 @@ Dialog {
     property string quoteWithEarlier
     // Forward: the original with a short header, not quoted.
     property string forwarded
+    // A saved draft to continue: everything above comes from it.
+    property int draftId
 
     property bool includeQuote: true
     property bool keepEarlierQuotes: false
     property bool writeBelowQuote: false
     property bool showCcBcc: cc.length > 0
     property bool discarded: false
+    // What a continued draft looked like when opened: leaving it unchanged doesn't save it.
+    property string openedState
 
     readonly property string currentQuote: keepEarlierQuotes && quoteWithEarlier.length > 0
                                            ? quoteWithEarlier : quote
@@ -43,7 +48,9 @@ Dialog {
 
     // Forwarding sends the original's attachments along, except those removed here. They're
     // downloaded first.
+    // A draft of a forward has the original's attachments already.
     readonly property bool forwarding: responseType === EmailMessage.Forward && originalMessageId > 0
+                                       && draftId === 0
     property var leftOut: []
     // Bumped when the original's attachments may have changed: the model's methods don't notify.
     property int attachmentsVersion
@@ -74,6 +81,8 @@ Dialog {
         var size = 0
         for (var i = 0; i < files.count; ++i)
             size += files.get(i).fileSize
+        for (var k = 0; k < draftFiles.count; ++k)
+            size += draftFiles.get(k).size
         var model = original.attachmentModel
         for (var j = 0; forwarding && j < model.count; ++j) {
             if (leftOut.indexOf(model.location(j)) < 0)
@@ -134,20 +143,65 @@ Dialog {
             paths.push(files.get(i).filePath)
         message.attachments = paths
         message.forwardedParts = forwardedLocations()
+        var kept = []
+        for (var k = 0; k < draftFiles.count; ++k)
+            kept.push(draftFiles.get(k).location)
+        message.keptParts = kept
+    }
+
+    // Everything that ends up in the mail, to tell whether a draft was changed.
+    function state() {
+        var paths = []
+        for (var i = 0; i < files.count; ++i)
+            paths.push(files.get(i).filePath)
+        var kept = []
+        for (var k = 0; k < draftFiles.count; ++k)
+            kept.push(draftFiles.get(k).location)
+        return JSON.stringify([fromBox.value, toField.text, ccField.text, bccField.text, subjectField.text,
+                               composedBody(), paths, kept, forwardedLocations()])
+    }
+
+    // Fills the form from the draft, putting its quote back where the composer shows quotes.
+    function loadDraft() {
+        if (!outgoing.loadDraft(draftId)) {
+            Notices.show(qsTr("The draft couldn't be opened"), Notice.Long, Notice.Center)
+            return
+        }
+        from = outgoing.from
+        to = outgoing.to.join(", ")
+        cc = outgoing.cc.join(", ")
+        bccField.text = outgoing.bcc.join(", ")
+        showCcBcc = cc.length > 0 || bccField.text.length > 0
+        subject = outgoing.subject
+        responseType = outgoing.responseType
+        originalMessageId = outgoing.originalMessageId
+        var parts = outgoing.draftParts()
+        body.text = parts.text
+        attribution = parts.attribution
+        quote = parts.quote
+        writeBelowQuote = parts.writtenBelowQuote
+        var attachments = outgoing.draftAttachments()
+        for (var i = 0; i < attachments.length; ++i)
+            draftFiles.append(attachments[i])
     }
 
     onAccepted: {
         fill(outgoing)
         var accountId = outgoing.send()
-        if (accountId > 0)
+        if (accountId > 0) {
             app.emailAgent.processSendingQueue(accountId)
-        else
+            // So the server's copy of the draft goes too.
+            if (draftId > 0)
+                app.emailAgent.exportUpdates(accountId)
+        } else
             Notices.show(qsTr("The mail couldn't be put in the Outbox: %1").arg(outgoing.error),
                          Notice.Long, Notice.Center)
     }
 
     onRejected: {
-        if (discarded || (body.text.trim().length === 0 && files.count === 0))
+        if (discarded || (body.text.trim().length === 0 && files.count === 0 && draftFiles.count === 0))
+            return
+        if (draftId > 0 && state() === openedState)
             return
         fill(outgoing)
         var accountId = outgoing.saveDraft()
@@ -161,6 +215,8 @@ Dialog {
     }
 
     Component.onCompleted: {
+        if (draftId > 0)
+            loadDraft()
         var index = identities.indexFromAddress(from)
         if (index >= 0)
             fromBox.currentIndex = index
@@ -172,6 +228,8 @@ Dialog {
         // too.
         if (forwarding && !forwardReady)
             original.downloadMessage()
+        if (draftId > 0)
+            openedState = state()
     }
 
     EmailMessage {
@@ -187,6 +245,11 @@ Dialog {
     // Files to attach: fileName, filePath, fileSize.
     ListModel {
         id: files
+    }
+
+    // The continued draft's own attachments: location, name, size.
+    ListModel {
+        id: draftFiles
     }
 
     Component {
@@ -210,6 +273,10 @@ Dialog {
         id: outgoing
     }
 
+    RemorsePopup {
+        id: remorse
+    }
+
     EmailTransmitAddressListModel {
         id: identities
     }
@@ -231,10 +298,18 @@ Dialog {
 
         PullDownMenu {
             MenuItem {
-                text: qsTr("Discard")
+                text: dialog.draftId > 0 ? qsTr("Delete draft") : qsTr("Discard")
                 onClicked: {
-                    dialog.discarded = true
-                    pageStack.pop()
+                    if (dialog.draftId === 0) {
+                        dialog.discarded = true
+                        pageStack.pop()
+                        return
+                    }
+                    remorse.execute(qsTr("Deleting draft"), function() {
+                        dialog.discarded = true
+                        app.emailAgent.deleteMessage(dialog.draftId)
+                        pageStack.pop()
+                    })
                 }
             }
             MenuItem {
@@ -336,7 +411,8 @@ Dialog {
             }
 
             SectionHeader {
-                visible: files.count > 0 || (dialog.forwarding && original.attachmentModel.count > dialog.leftOut.length)
+                visible: files.count > 0 || draftFiles.count > 0
+                         || (dialog.forwarding && original.attachmentModel.count > dialog.leftOut.length)
                 text: qsTr("Attachments, %1").arg(Format.formatFileSize(dialog.totalSize))
             }
             Label {
@@ -347,6 +423,14 @@ Dialog {
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeExtraSmall
                 color: Theme.secondaryHighlightColor
+            }
+            Repeater {
+                model: draftFiles
+                AttachmentItem {
+                    name: model.name
+                    size: model.size
+                    onRemoveRequested: draftFiles.remove(index)
+                }
             }
             Repeater {
                 model: files

@@ -2,6 +2,7 @@
 #include "outgoingmessage.h"
 
 #include "flowedtext.h"
+#include "maildraft.h"
 
 #include <qmailaccount.h>
 #include <qmaildisconnected.h>
@@ -127,6 +128,78 @@ void OutgoingMessage::setForwardedParts(const QStringList &locations)
     }
 }
 
+void OutgoingMessage::setKeptParts(const QStringList &locations)
+{
+    if (locations != m_keptParts) {
+        m_keptParts = locations;
+        emit changed();
+    }
+}
+
+bool OutgoingMessage::loadDraft(int messageId)
+{
+    const QMailMessageId id(messageId);
+    if (!id.isValid())
+        return false;
+    QMailMessage draft(id);
+    if (!draft.id().isValid())
+        return false;
+
+    m_draftId = id;
+    m_from = draft.from().address();
+    m_to = QMailAddress::toStringList(draft.to());
+    m_cc = QMailAddress::toStringList(draft.cc());
+    m_bcc = QMailAddress::toStringList(draft.bcc());
+    m_subject = draft.subject();
+    m_responseType = draft.responseType();
+    m_originalMessageId = int(draft.inResponseTo().toULongLong());
+    m_attachments.clear();
+    m_forwardedParts.clear();
+
+    m_body.clear();
+    if (const QMailMessagePartContainer *text = draft.findPlainTextContainer()) {
+        m_body = text->body().data();
+        if (text->contentType().parameter("format").toLower() == "flowed")
+            m_body = FlowedText::decode(m_body);
+    }
+
+    m_keptParts.clear();
+    for (const QMailMessagePart::Location &location : draft.findAttachmentLocations())
+        m_keptParts.append(location.toString(true));
+    emit changed();
+    return true;
+}
+
+QVariantList OutgoingMessage::draftAttachments() const
+{
+    QVariantList result;
+    if (!m_draftId.isValid())
+        return result;
+    QMailMessage draft(m_draftId);
+    for (const QMailMessagePart::Location &location : draft.findAttachmentLocations()) {
+        const QMailMessagePart &part = draft.partAt(location);
+        QVariantMap attachment;
+        attachment.insert(QStringLiteral("location"), location.toString(true));
+        attachment.insert(QStringLiteral("name"), part.displayName());
+        const int size = part.contentDisposition().size();
+        attachment.insert(QStringLiteral("size"), size > 0 ? size : int(part.body().length()));
+        result.append(attachment);
+    }
+    return result;
+}
+
+QVariantMap OutgoingMessage::draftParts() const
+{
+    const MailDraft draft = MailDraft::split(m_body);
+    QVariantMap parts;
+    parts.insert(QStringLiteral("text"), draft.text);
+    parts.insert(QStringLiteral("signature"), draft.signature);
+    parts.insert(QStringLiteral("attribution"), draft.attribution);
+    parts.insert(QStringLiteral("quote"), draft.quote);
+    parts.insert(QStringLiteral("writtenBelowQuote"), draft.writtenBelowQuote);
+    return parts;
+}
+
 bool OutgoingMessage::fail(const QString &error)
 {
     qWarning("%s", qPrintable(error));
@@ -174,19 +247,29 @@ bool OutgoingMessage::build(QMailMessage *message)
 
     // Both turn the message into multipart/mixed, with the text as its first part. Rather not
     // sent than sent without what it says is attached.
-    if (!m_forwardedParts.isEmpty()) {
-        QList<const QMailMessagePart *> parts;
-        for (const QString &location : m_forwardedParts) {
+    QMailMessage draft;
+    if (m_draftId.isValid() && !m_keptParts.isEmpty())
+        draft = QMailMessage(m_draftId);
+    QList<const QMailMessagePart *> parts;
+    auto take = [&parts](const QMailMessage &from, const QStringList &locations) {
+        for (const QString &location : locations) {
             const QMailMessagePart::Location partLocation(location);
-            if (!original.contains(partLocation))
-                return fail(tr("An attachment of the original is gone"));
-            const QMailMessagePart &part = original.partAt(partLocation);
-            if (!part.hasBody())
-                return fail(tr("%1 hasn't been downloaded").arg(part.displayName()));
-            parts.append(&part);
+            if (!from.contains(partLocation))
+                return false;
+            parts.append(&from.partAt(partLocation));
         }
-        message->setAttachments(parts);
+        return true;
+    };
+    if (!take(original, m_forwardedParts))
+        return fail(tr("An attachment of the original is gone"));
+    if (!take(draft, m_keptParts))
+        return fail(tr("An attachment of the draft is gone"));
+    for (const QMailMessagePart *part : parts) {
+        if (!part->hasBody())
+            return fail(tr("%1 hasn't been downloaded").arg(part->displayName()));
     }
+    if (!parts.isEmpty())
+        message->setAttachments(parts);
     if (!m_attachments.isEmpty()) {
         for (const QString &path : m_attachments) {
             if (!QFileInfo(path).isFile())
@@ -214,7 +297,7 @@ int OutgoingMessage::send()
     message.setStatus(QMailMessage::Outbox | QMailMessage::Draft, true);
     message.setParentFolderId(QMailFolderId::LocalStorageFolderId);
     if (!QMailStore::instance()->addMessage(&message)) {
-        qWarning("could not put the message in the outbox");
+        fail(tr("The mail store didn't take it"));
         return 0;
     }
 
@@ -259,17 +342,14 @@ int OutgoingMessage::saveDraft()
     message.setStatus(QMailMessage::Outbox, false);
     message.setStatus(QMailMessage::Draft, true);
 
-    bool stored;
-    if (m_draftId.isValid()) {
-        message.setId(m_draftId);
-        stored = QMailStore::instance()->updateMessage(&message);
-    } else {
-        stored = QMailStore::instance()->addMessage(&message);
-    }
-    if (!stored) {
-        qWarning("could not save the draft");
+    // A new message replaces an earlier version, rather than updating it: the freshly built
+    // message lacks the stored one's content location, which updateMessage() needs.
+    if (!QMailStore::instance()->addMessage(&message)) {
+        fail(tr("The mail store didn't take it"));
         return 0;
     }
+    if (m_draftId.isValid())
+        QMailStore::instance()->removeMessage(m_draftId, QMailStore::CreateRemovalRecord);
     m_draftId = message.id();
 
     // So the next sync puts it in the server's Drafts folder.

@@ -9,9 +9,11 @@ HEADERS += \
     flowedtext.h \
     linkcleaner.h \
     mailaddresses.h \
-    mailcontent.h
+    mailcontent.h \
+    maildraft.h
 SOURCES += \
     flowedtext.cpp \
     linkcleaner.cpp \
     mailaddresses.cpp \
-    mailcontent.cpp
+    mailcontent.cpp \
+    maildraft.cpp

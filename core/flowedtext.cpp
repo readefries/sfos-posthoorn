@@ -67,4 +67,44 @@ QString encode(const QString &text, int width)
     return output.join(QLatin1Char('\n'));
 }
 
+QString decode(const QString &flowed)
+{
+    QString normalized = flowed;
+    normalized.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+
+    QStringList paragraphs;
+    QString current;
+    int currentDepth = 0;
+    bool continuing = false;
+    for (const QString &raw : normalized.split(QLatin1Char('\n'))) {
+        int depth = 0;
+        while (depth < raw.size() && raw.at(depth) == QLatin1Char('>'))
+            ++depth;
+        QString line = raw.mid(depth);
+        // Space-stuffing, or the space between quote markers and text.
+        if (line.startsWith(QLatin1Char(' ')))
+            line.remove(0, 1);
+        const bool soft = line.endsWith(QLatin1Char(' ')) && raw != QLatin1String("-- ");
+
+        // A soft break followed by a line of another quote depth ends the paragraph anyway.
+        if (continuing && depth != currentDepth) {
+            paragraphs.append(current);
+            continuing = false;
+        }
+        if (continuing) {
+            current += line;
+        } else {
+            currentDepth = depth;
+            current = depth > 0 ? QString(depth, QLatin1Char('>')) + (line.isEmpty() ? QString() : QStringLiteral(" ")) + line
+                                : line;
+        }
+        continuing = soft;
+        if (!continuing)
+            paragraphs.append(current);
+    }
+    if (continuing)
+        paragraphs.append(current);
+    return paragraphs.join(QLatin1Char('\n'));
+}
+
 } // namespace FlowedText

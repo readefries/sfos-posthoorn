@@ -4,6 +4,8 @@
 
 #include <QObject>
 #include <QStringList>
+#include <QVariantList>
+#include <QVariantMap>
 
 #include <qmailmessage.h>
 
@@ -33,6 +35,8 @@ class OutgoingMessage : public QObject
     // Attachments of the original to send along, as the email plugin's part locations. They must
     // have been downloaded.
     Q_PROPERTY(QStringList forwardedParts READ forwardedParts WRITE setForwardedParts NOTIFY changed)
+    // Attachments of the draft loaded with loadDraft() to keep, as part locations.
+    Q_PROPERTY(QStringList keptParts READ keptParts WRITE setKeptParts NOTIFY changed)
     // Why the last send() or saveDraft() failed.
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
 
@@ -59,12 +63,22 @@ public:
     void setAttachments(const QStringList &paths);
     QStringList forwardedParts() const { return m_forwardedParts; }
     void setForwardedParts(const QStringList &locations);
+    QStringList keptParts() const { return m_keptParts; }
+    void setKeptParts(const QStringList &locations);
     QString error() const { return m_error; }
+
+    // Continues a saved draft: sets everything from it, and makes saveDraft() replace it and
+    // send() remove it. The body is as it was put together, see draftParts().
+    Q_INVOKABLE bool loadDraft(int messageId);
+    // The loaded draft's attachments: { location, name, size }.
+    Q_INVOKABLE QVariantList draftAttachments() const;
+    // The body split into { text, signature, attribution, quote, writtenBelowQuote }.
+    Q_INVOKABLE QVariantMap draftParts() const;
 
     // Puts the message in the outbox. Returns its account's id, 0 when it couldn't be stored.
     Q_INVOKABLE int send();
-    // Stores the message in the account's Drafts folder, replacing what an earlier call saved.
-    // Returns its account's id, 0 when it couldn't be stored.
+    // Stores the message in the account's Drafts folder, replacing what an earlier call saved or
+    // the draft loaded. Returns its account's id, 0 when it couldn't be stored.
     Q_INVOKABLE int saveDraft();
 
 signals:
@@ -85,6 +99,7 @@ private:
     int m_originalMessageId = 0;
     QStringList m_attachments;
     QStringList m_forwardedParts;
+    QStringList m_keptParts;
     QString m_error;
     QMailMessageId m_draftId;
 };
