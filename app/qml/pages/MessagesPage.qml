@@ -174,9 +174,11 @@ Page {
             PageHeader {
                 title: page.selecting ? qsTr("%n selected", "", messages.selectedMessageCount) : page.shownTitle
                 description: page.selecting ? page.shownTitle
-                                            : page.searching && messages.searchingBodies
-                                              ? qsTr("Looking in the text of mails…")
-                                              : qsTr("%n message(s)", "", messages.count)
+                                            : page.searching && messages.searchingServer
+                                              ? qsTr("Searching on the server…")
+                                              : page.searching && messages.searchingBodies
+                                                ? qsTr("Looking in the text of mails…")
+                                                : qsTr("%n message(s)", "", messages.count)
             }
 
             SearchField {
@@ -248,6 +250,20 @@ Page {
                     }
                 }
             }
+
+            // Servers can search on text, unread and starred, not on attachments.
+            Button {
+                visible: page.searching && !messages.serverSearched
+                         && (page.searchText.trim().length > 0 || page.searchUnread || page.searchStarred)
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: qsTr("Search on the server")
+                onClicked: messages.searchServer()
+            }
+            Item {
+                visible: page.searching
+                width: 1
+                height: Theme.paddingLarge
+            }
         }
 
         PullDownMenu {
@@ -302,14 +318,15 @@ Page {
         }
 
         ViewPlaceholder {
-            enabled: list.count === 0 && !(page.searching && messages.searchingBodies)
+            enabled: list.count === 0 && !(page.searching && (messages.searchingBodies || messages.searchingServer))
             // Below the search fields.
             verticalOffset: page.searching && list.headerItem ? list.headerItem.height / 2 : 0
             text: page.searching ? (page.searchText.trim().length > 0 || page.searchUnread || page.searchStarred
                                     || page.searchAttachments ? qsTr("Nothing found") : "")
                                  : page.unified && app.unifiedFolders.length === 0 ? qsTr("No folders chosen")
                                                                                    : qsTr("No messages")
-            hintText: page.searching ? (text.length > 0 ? qsTr("Only mail on the phone is searched")
+            hintText: page.searching ? (text.length > 0 ? (messages.serverSearched ? qsTr("Not on the server either")
+                                                                                   : qsTr("Only mail on the phone was searched"))
                                                         : qsTr("Type something or pick a filter"))
                                      : page.unified && app.unifiedFolders.length === 0
                                        ? qsTr("Choose the folders to show here in Settings, in the pulley")

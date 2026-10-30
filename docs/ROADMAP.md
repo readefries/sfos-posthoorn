@@ -71,7 +71,9 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - ✓ Search through all mail: words in the subject, sender and recipients, optionally the text of
   mails too (QMF's local search, only mail whose text is downloaded), and filters for unread,
   starred and attachments, of all accounts or one. Trash and Junk are left out.
-- Search on the server too (QMF's remote search per account), for mail that isn't on the phone.
+- ✓ Search on the server too: a button on the search page asks each account's server (QMF's
+  remote search, up to 100 mails each), for text, unread and starred. What it finds is shown
+  with the rest and removed from the phone again when the search page goes.
 - ✓ Move to a folder of the same account, from the list and from an open mail.
 - Folders as part of the flow: folder drawer per account, favourites.
 - ✓ A unified inbox that can be configured: by default the inboxes of all accounts (also ones
@@ -109,7 +111,7 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   Unchanged drafts aren't saved again; saving replaces the old version, sending or "Delete draft"
   removes it.
 - A "Binding loop detected for property canNavigateForward" warning from the compose Dialog.
-- "Cannot pop while operation is in progress" warnings from the page stack, now and then.
+- ✓ "Cannot pop while operation is in progress": going back now waits for page transitions.
 
 ### 5. PGP
 

@@ -18,6 +18,14 @@ UnifiedMessageListModel::UnifiedMessageListModel(QObject *parent)
             this, &UnifiedMessageListModel::onMessagesRemoved);
 }
 
+UnifiedMessageListModel::~UnifiedMessageListModel()
+{
+    cancelSearches();
+    // What the servers found was only stored for showing it here.
+    if (m_hadServerResults)
+        QMailStore::instance()->removeMessages(QMailSearchAction::temporaryKey(), QMailStore::NoRemovalRecord);
+}
+
 QHash<int, QByteArray> UnifiedMessageListModel::roleNames() const
 {
     // Named as EmailMessageListModel names them.
@@ -57,7 +65,7 @@ void UnifiedMessageListModel::setSearch(const QVariantMap &search)
     emit searchChanged();
 }
 
-void UnifiedMessageListModel::updateKey()
+void UnifiedMessageListModel::cancelSearches()
 {
     if (m_bodySearch) {
         m_bodySearch->cancelOperation();
@@ -65,7 +73,22 @@ void UnifiedMessageListModel::updateKey()
         m_bodySearch.clear();
         emit searchingBodiesChanged();
     }
-    m_bodyMatches.clear();
+    const bool serverSearch = m_serverSearched || !m_serverSearches.isEmpty();
+    for (QMailSearchAction *search : m_serverSearches) {
+        search->cancelOperation();
+        search->deleteLater();
+    }
+    m_serverSearches.clear();
+    m_serverSearched = false;
+    if (serverSearch)
+        emit serverSearchChanged();
+}
+
+void UnifiedMessageListModel::updateKey()
+{
+    cancelSearches();
+    m_matches.clear();
+    m_serverKey = QMailMessageKey::nonMatchingKey();
     m_selected.clear();
     emit selectedMessageCountChanged();
 
@@ -79,22 +102,27 @@ void UnifiedMessageListModel::updateKey()
             if (folder.isValid())
                 folders.append(folder);
         }
+        // Not what a server search found, which is only for the search.
         setKey(folders.isEmpty() ? QMailMessageKey::nonMatchingKey()
-                                 : QMailMessageKey::parentFolderId(folders) & present);
+                                 : QMailMessageKey::parentFolderId(folders) & present
+                                   & ~QMailSearchAction::temporaryKey());
         return;
     }
 
     const QString text = m_search.value(QStringLiteral("text")).toString().simplified();
     bool anything = !text.isEmpty();
     QMailMessageKey filter = present;
+    // The flags a server can search on too.
+    QMailMessageKey flags;
     if (m_search.value(QStringLiteral("unread")).toBool()) {
-        filter &= QMailMessageKey::status(QMailMessage::Read, QMailDataComparator::Excludes);
+        flags &= QMailMessageKey::status(QMailMessage::Read, QMailDataComparator::Excludes);
         anything = true;
     }
     if (m_search.value(QStringLiteral("starred")).toBool()) {
-        filter &= QMailMessageKey::status(QMailMessage::Important, QMailDataComparator::Includes);
+        flags &= QMailMessageKey::status(QMailMessage::Important, QMailDataComparator::Includes);
         anything = true;
     }
+    filter &= flags;
     if (m_search.value(QStringLiteral("attachments")).toBool()) {
         filter &= QMailMessageKey::status(QMailMessage::HasAttachments, QMailDataComparator::Includes);
         anything = true;
@@ -127,14 +155,20 @@ void UnifiedMessageListModel::updateKey()
     }
     m_searchFilter = filter;
     m_textKey = textKey;
+    // Not for attachments alone: servers can't search on those, and would send everything.
+    m_serverKey = textKey.isEmpty() && flags.isEmpty() ? QMailMessageKey::nonMatchingKey() : textKey & flags;
+    if (accountId > 0)
+        m_serverKey &= QMailMessageKey::parentAccountId(QMailAccountId(accountId));
     setKey(textKey.isEmpty() ? filter : filter & textKey);
 
-    if (!text.isEmpty() && m_search.value(QStringLiteral("body")).toBool()) {
+    const bool body = !text.isEmpty() && m_search.value(QStringLiteral("body")).toBool();
+    m_bodyText = body ? text : QString();
+    if (body) {
         // The messageserver looks through the text of the mails on the phone, and reports what it
         // finds as it goes.
         m_bodySearch = new QMailSearchAction(this);
         connect(m_bodySearch.data(), &QMailSearchAction::messageIdsMatched,
-                this, &UnifiedMessageListModel::onBodiesMatched);
+                this, &UnifiedMessageListModel::onMatched);
         connect(m_bodySearch.data(), &QMailServiceAction::activityChanged,
                 this, &UnifiedMessageListModel::onBodySearchActivity);
         m_bodySearch->searchMessages(filter, text, QMailSearchAction::Local);
@@ -142,12 +176,50 @@ void UnifiedMessageListModel::updateKey()
     }
 }
 
-void UnifiedMessageListModel::onBodiesMatched(const QMailMessageIdList &ids)
+void UnifiedMessageListModel::onMatched(const QMailMessageIdList &ids)
 {
     if (ids.isEmpty())
         return;
-    m_bodyMatches += ids;
-    setKey(m_searchFilter & (m_textKey | QMailMessageKey::id(m_bodyMatches)));
+    m_matches += ids;
+    const QMailMessageKey found = QMailMessageKey::id(m_matches);
+    setKey(m_searchFilter & (m_textKey.isEmpty() ? found : m_textKey | found));
+}
+
+void UnifiedMessageListModel::searchServer()
+{
+    if (m_search.isEmpty() || m_serverKey.isNonMatching() || !m_serverSearches.isEmpty())
+        return;
+    const int accountId = m_search.value(QStringLiteral("accountId")).toInt();
+    const QMailAccountIdList accounts = accountId > 0 ? QMailAccountIdList() << QMailAccountId(accountId)
+                                                      : QMailStore::instance()->queryAccounts(
+                                                            QMailAccountKey::messageType(QMailMessage::Email));
+    for (const QMailAccountId &account : accounts) {
+        QMailSearchAction *search = new QMailSearchAction(this);
+        connect(search, &QMailSearchAction::messageIdsMatched, this, [this](const QMailMessageIdList &ids) {
+            m_hadServerResults = m_hadServerResults || !ids.isEmpty();
+            onMatched(ids);
+        });
+        connect(search, &QMailServiceAction::activityChanged, this, [this, search]() {
+            onServerSearchActivity(search);
+        });
+        m_serverSearches.append(search);
+        search->searchMessages(m_serverKey & QMailMessageKey::parentAccountId(account), m_bodyText,
+                               QMailSearchAction::Remote, 100,
+                               QMailMessageSortKey::timeStamp(Qt::DescendingOrder));
+    }
+    m_serverSearched = true;
+    emit serverSearchChanged();
+}
+
+void UnifiedMessageListModel::onServerSearchActivity(QMailSearchAction *search)
+{
+    const QMailServiceAction::Activity activity = search->activity();
+    if (activity != QMailServiceAction::Successful && activity != QMailServiceAction::Failed)
+        return;
+    if (m_serverSearches.removeOne(search)) {
+        search->deleteLater();
+        emit serverSearchChanged();
+    }
 }
 
 void UnifiedMessageListModel::onBodySearchActivity()

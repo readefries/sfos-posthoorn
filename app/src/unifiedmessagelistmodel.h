@@ -30,6 +30,9 @@ class UnifiedMessageListModel : public QMailMessageListModel
     Q_PROPERTY(QVariantMap search READ search WRITE setSearch NOTIFY searchChanged)
     // Looking in the text of mails, which takes a while.
     Q_PROPERTY(bool searchingBodies READ searchingBodies NOTIFY searchingBodiesChanged)
+    // searchServer() is running, or has run for this search.
+    Q_PROPERTY(bool searchingServer READ searchingServer NOTIFY serverSearchChanged)
+    Q_PROPERTY(bool serverSearched READ serverSearched NOTIFY serverSearchChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
     Q_PROPERTY(int selectedMessageCount READ selectedMessageCount NOTIFY selectedMessageCountChanged)
 
@@ -51,6 +54,7 @@ public:
     };
 
     explicit UnifiedMessageListModel(QObject *parent = nullptr);
+    ~UnifiedMessageListModel() override;
 
     QHash<int, QByteArray> roleNames() const override;
     // Not hidden by the override below.
@@ -61,6 +65,13 @@ public:
     QVariantMap search() const { return m_search; }
     void setSearch(const QVariantMap &search);
     bool searchingBodies() const { return !m_bodySearch.isNull(); }
+    bool searchingServer() const { return !m_serverSearches.isEmpty(); }
+    bool serverSearched() const { return m_serverSearched; }
+
+    // Asks the servers of the accounts searched, for mail that isn't on the phone. What they find
+    // is added to the results, and stays on the phone only while they're shown. Up to 100 mails
+    // per account.
+    Q_INVOKABLE void searchServer();
     int count() const { return rowCount(); }
     int selectedMessageCount() const { return m_selected.size(); }
 
@@ -78,6 +89,7 @@ signals:
     void folderIdsChanged();
     void searchChanged();
     void searchingBodiesChanged();
+    void serverSearchChanged();
     void countChanged();
     void selectedMessageCountChanged();
 
@@ -87,17 +99,25 @@ protected:
 private:
     void onMessagesRemoved(const QMailMessageIdList &ids);
     void updateKey();
-    void onBodiesMatched(const QMailMessageIdList &ids);
+    void onMatched(const QMailMessageIdList &ids);
     void onBodySearchActivity();
+    void onServerSearchActivity(QMailSearchAction *search);
+    void cancelSearches();
 
     QVariantList m_folderIds;
     QVariantMap m_search;
-    // Found in the mail's text, besides what matches the search's key.
-    QMailMessageIdList m_bodyMatches;
+    // Found in the mail's text or on the server, besides what matches the search's key.
+    QMailMessageIdList m_matches;
     // What the search looks in, and what it looks for in the subject, sender and recipients.
     QMailMessageKey m_searchFilter;
     QMailMessageKey m_textKey;
+    // What the servers are asked: the text and flags, as they don't know the phone's folders.
+    QMailMessageKey m_serverKey;
+    QString m_bodyText;
     QPointer<QMailSearchAction> m_bodySearch;
+    QList<QMailSearchAction *> m_serverSearches;
+    bool m_serverSearched = false;
+    bool m_hadServerResults = false;
     QSet<QMailMessageId> m_selected;
     mutable QHash<QMailFolderId, QString> m_folderNames;
 };
