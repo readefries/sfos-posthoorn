@@ -32,6 +32,8 @@ class MessageBody : public QObject
 
     // Rich text for a TextEdit.
     Q_PROPERTY(QString text READ text NOTIFY textChanged)
+    // Nothing to show, not even an image: some HTML is all layout or hidden.
+    Q_PROPERTY(bool empty READ isEmpty NOTIFY textChanged)
     Q_PROPERTY(int imageCount READ imageCount NOTIFY textChanged)
     Q_PROPERTY(int remoteImageCount READ remoteImageCount NOTIFY textChanged)
 
@@ -72,6 +74,7 @@ public:
     Q_INVOKABLE QString quoteSelection(const QString &selection) const { return MailContent::quoteLines(selection); }
     // The text without formatting, for forwarding.
     Q_INVOKABLE QString plainContent() const { return m_content.toPlainText(); }
+    bool isEmpty() const { return m_content.isEmpty(); }
     int imageCount() const { return m_content.images.size(); }
     int remoteImageCount() const { return m_content.remoteImageCount(); }
 

@@ -14,6 +14,9 @@ Page {
     property bool preferTextPart: false
     readonly property bool useHtml: message.contentType === EmailMessage.HTML && !preferTextPart
     property bool showImages: false
+    // The HTML part had nothing to show, so the text part is shown instead. Only once: "Use HTML
+    // part" still shows the empty HTML.
+    property bool htmlWasEmpty: false
 
     // Reading a body makes the plugin download it, so only read the one that's used, and only once
     // the message is set: the bindings can run before messageId is, which would request a download
@@ -42,6 +45,18 @@ Page {
         imagePlaceholder: qsTr("[Image: %1]")
         //: Description of an image in a mail that has none of its own.
         imageText: qsTr("no description")
+    }
+
+    Connections {
+        target: formatted
+        onTextChanged: {
+            if (page.useHtml && page.source.length > 0 && formatted.empty && !page.htmlWasEmpty) {
+                // In the log, to find mail the reader gets wrong.
+                console.log("Message", page.messageId, "has nothing to show in its HTML, using its text part")
+                page.htmlWasEmpty = true
+                page.preferTextPart = true
+            }
+        }
     }
 
     Component.onCompleted: {
@@ -257,6 +272,16 @@ Page {
                 running: visible
                 // The plugin downloads the body when it's first asked for, and returns "" until then.
                 visible: page.source.length === 0
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: page.htmlWasEmpty && !page.useHtml
+                text: qsTr("Nothing readable in this mail's HTML, so this is its text part.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.secondaryHighlightColor
             }
 
             Label {

@@ -47,6 +47,7 @@ private slots:
     void paragraphsAndWhitespace();
     void leavesOutWhatIsNotShown();
     void leavesOutHiddenElements();
+    void showsWhatOnlyLooksHidden();
     void decodesEntities();
     void keepsEmphasis();
     void keepsSafeLinks();
@@ -107,12 +108,37 @@ void TestMailContent::leavesOutHiddenElements()
             "<div style=\"display: none; max-height: 0px\">Preheader</div>"
             "<div style=\"max-height:0;overflow:hidden\">Also preheader</div>"
             "<span style=\"font-size:0px\">tiny</span>"
-            "<div style=\"mso-hide:all\">outlook</div>"
             "<div hidden>attribute</div>"
             "<p style=\"opacity:0\">invisible</p>"
             "<p style=\"opacity:0.5\">faded</p>"
             "<p>Visible&#8204;&nbsp;&#847;</p>"));
     QCOMPARE(texts(content), QStringList() << QStringLiteral("faded") << QStringLiteral("Visible"));
+}
+
+void TestMailContent::showsWhatOnlyLooksHidden()
+{
+    // Hidden from Outlook only, which gets its own version in a conditional comment.
+    QCOMPARE(texts(MailContent::fromHtml(QStringLiteral(
+            "<!--[if mso]><p>Outlook</p><![endif]-->"
+            "<table style=\"mso-hide:all\"><tr><td>Everyone else</td></tr></table>"))),
+             QStringList() << QStringLiteral("Everyone else"));
+    // A zero font size between columns, set again inside them.
+    QCOMPARE(texts(MailContent::fromHtml(QStringLiteral(
+            "<table><tr><td style=\"font-size:0; text-align:center\"> "
+            "<div style=\"display:inline-block\"><p style=\"font-size: 14px\">Column</p></div> "
+            "</td></tr></table>"))),
+             QStringList() << QStringLiteral("Column"));
+    // A head that is never closed ends where the body starts.
+    QCOMPARE(texts(MailContent::fromHtml(QStringLiteral(
+            "<html><head><meta charset=\"utf-8\"><title>Title</title><body><p>Body</p></body></html>"))),
+             QStringList() << QStringLiteral("Body"));
+    QCOMPARE(texts(MailContent::fromHtml(QStringLiteral("<head><style>p {}</style><div>Body</div>"))),
+             QStringList() << QStringLiteral("Body"));
+    // So does a title or style that is never closed.
+    QCOMPARE(texts(MailContent::fromHtml(QStringLiteral("<title>Title<p>Body</p>"))),
+             QStringList() << QStringLiteral("Body"));
+    QCOMPARE(texts(MailContent::fromHtml(QStringLiteral("<style>p { color: red }<p>Body</p>"))),
+             QStringList() << QStringLiteral("Body"));
 }
 
 void TestMailContent::decodesEntities()

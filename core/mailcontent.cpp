@@ -363,21 +363,42 @@ bool isRawTextElement(const QString &name)
             || name == QLatin1String("xmp");
 }
 
+QString compactCss(const QString &style)
+{
+    QString css = style.toLower();
+    css.remove(QRegularExpression(QStringLiteral("\\s+")));
+    return css;
+}
+
 // Styles that hide an element, as used for preheaders (the preview text some mail apps show).
+// Not mso-hide:all, which hides from Outlook only: what's for Outlook alone is in "<!--[if mso]>"
+// comments, so this is what everyone else is meant to see.
 bool isHiddenStyle(const QString &style)
 {
     if (style.isEmpty())
         return false;
-    QString css = style.toLower();
-    css.remove(QRegularExpression(QStringLiteral("\\s+")));
+    const QString css = compactCss(style);
     static const QRegularExpression hidden(QStringLiteral(
-            "(^|;)(display:none|visibility:hidden|mso-hide:all|opacity:0(\\.0*)?(;|!|$)"
-            "|font-size:0(px|pt|em|rem|%)?(;|!|$))"));
+            "(^|;)(display:none|visibility:hidden|opacity:0(\\.0*)?(;|!|$))"));
     if (hidden.match(css).hasMatch())
         return true;
     static const QRegularExpression zeroHeight(QStringLiteral(
             "(^|;)(max-)?height:0(px)?(;|!|$)"));
     return zeroHeight.match(css).hasMatch() && css.contains(QLatin1String("overflow:hidden"));
+}
+
+// 0 for a zero font size, 1 for another one, -1 when the style doesn't set it. A zero font size
+// hides text, but often only to take out the space between a layout's columns, with the size set
+// again inside: so it doesn't hide an element the way isHiddenStyle() does.
+int fontSize(const QString &style)
+{
+    if (style.isEmpty())
+        return -1;
+    static const QRegularExpression size(QStringLiteral("(^|;)font-size:([0-9.]*)"));
+    const QRegularExpressionMatch match = size.match(compactCss(style));
+    if (!match.hasMatch())
+        return -1;
+    return match.captured(2).toDouble() > 0 || match.captured(2).isEmpty() ? 1 : 0;
 }
 
 int pixels(const QString &value)
@@ -408,6 +429,8 @@ private:
     {
         QString name;
         bool hidden = false;
+        // As fontSize() has it.
+        int fontSize = -1;
         QString href;
         bool ordered = false;
         int counter = 1;
@@ -423,6 +446,8 @@ private:
     void closeBlock();
 
     bool hidden() const;
+    // Text in a zero font size, which images aren't.
+    bool zeroFont() const;
     MailSpan format() const;
     int count(const QString &name) const;
     int indexOf(const QString &name, const QString &stopAt = QString()) const;
@@ -515,11 +540,19 @@ MailContent HtmlReader::read(const QString &html)
                 startTag(name, attributes);
                 if (isRawTextElement(name)) {
                     const int end = html.indexOf(QLatin1String("</") + name, i, Qt::CaseInsensitive);
+                    if (end < 0) {
+                        // Never closed: taking the rest of the mail as its content would leave
+                        // nothing to read, so it ends where the next tag starts.
+                        const int next = html.indexOf(QLatin1Char('<'), i);
+                        i = next < 0 ? n : next;
+                        endTag(name);
+                        continue;
+                    }
                     if (name == QLatin1String("textarea") || name == QLatin1String("xmp")) {
-                        const QString raw = html.mid(i, (end < 0 ? n : end) - i);
+                        const QString raw = html.mid(i, end - i);
                         text(name == QLatin1String("textarea") ? decodeEntities(raw) : raw);
                     }
-                    i = end < 0 ? n : end;
+                    i = end;
                 }
             }
         } else {
@@ -538,6 +571,15 @@ bool HtmlReader::hidden() const
     for (const Element &element : m_stack) {
         if (element.hidden)
             return true;
+    }
+    return false;
+}
+
+bool HtmlReader::zeroFont() const
+{
+    for (int i = m_stack.size() - 1; i >= 0; --i) {
+        if (m_stack.at(i).fontSize >= 0)
+            return m_stack.at(i).fontSize == 0;
     }
     return false;
 }
@@ -618,7 +660,7 @@ void HtmlReader::closeBlock()
 
 void HtmlReader::text(const QString &raw)
 {
-    if (hidden())
+    if (hidden() || zeroFont())
         return;
 
     if (count(QStringLiteral("pre")) > 0) {
@@ -675,7 +717,7 @@ void HtmlReader::text(const QString &raw)
 
 void HtmlReader::lineBreak()
 {
-    if (hidden() || !m_blockOpen)
+    if (hidden() || zeroFont() || !m_blockOpen)
         return;
     MailSpan span = format();
     span.text = QStringLiteral("\n");
@@ -730,6 +772,15 @@ void HtmlReader::image(const Attributes &attributes)
 
 void HtmlReader::startTag(const QString &name, const Attributes &attributes)
 {
+    // The head ends where something that can't be in it starts, as browsers have it: an unclosed
+    // head would hide the whole mail.
+    static const QSet<QString> inHead = {
+        QStringLiteral("base"), QStringLiteral("link"), QStringLiteral("meta"), QStringLiteral("noscript"),
+        QStringLiteral("script"), QStringLiteral("style"), QStringLiteral("template"), QStringLiteral("title")
+    };
+    if (!inHead.contains(name) && indexOf(QStringLiteral("head")) >= 0)
+        endTag(QStringLiteral("head"));
+
     if (name == QLatin1String("br")) {
         lineBreak();
         return;
@@ -776,6 +827,7 @@ void HtmlReader::startTag(const QString &name, const Attributes &attributes)
     element.name = name;
     element.hidden = isHiddenElement(name) || attributes.contains(QStringLiteral("hidden"))
             || isHiddenStyle(attributes.value(QStringLiteral("style")));
+    element.fontSize = fontSize(attributes.value(QStringLiteral("style")));
     // How Gmail, Thunderbird and Outlook mark the signatures they add.
     const QStringList classes = attributes.value(QStringLiteral("class")).split(QLatin1Char(' '));
     element.signature = classes.contains(QStringLiteral("gmail_signature"))
