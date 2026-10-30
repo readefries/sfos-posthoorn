@@ -65,6 +65,13 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - ✓ A Settings page: the unified inbox's folders, each account's archive folder. The message
   list's pulley is Sync (closest), New mail, Settings; selecting is done with a long-press.
 - Configurable menu order, if the fixed order turns out not to fit.
+- ✓ Starring (QMF's Important flag, IMAP's \Flagged, which the plugin can't set): from the
+  long-press menu and the reader, shown in the list. Every list is now our own model, also a
+  single folder, as the plugin's model doesn't tell whether mail is starred.
+- ✓ Search through all mail: words in the subject, sender and recipients, optionally the text of
+  mails too (QMF's local search, only mail whose text is downloaded), and filters for unread,
+  starred and attachments, of all accounts or one. Trash and Junk are left out.
+- Search on the server too (QMF's remote search per account), for mail that isn't on the phone.
 - ✓ Move to a folder of the same account, from the list and from an open mail.
 - Folders as part of the flow: folder drawer per account, favourites.
 - ✓ A unified inbox that can be configured: by default the inboxes of all accounts (also ones

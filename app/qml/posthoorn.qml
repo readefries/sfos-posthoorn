@@ -71,6 +71,10 @@ ApplicationWindow {
             agent.moveMessage(messageId, ArchiveFolders.folderId(accountId))
     }
 
+    function setStarred(messageId, starred) {
+        agent.exportUpdates(MessageFlags.setStarred(messageId, starred))
+    }
+
     Component {
         id: folderMessages
         UnifiedMessageListModel { }
@@ -83,6 +87,11 @@ ApplicationWindow {
         for (var i = 0; i < ids.length; ++i)
             agent.markMessageAsRead(ids[i])
         model.destroy()
+    }
+
+    // Searching all mail of all accounts.
+    function search() {
+        pageStack.push(Qt.resolvedUrl("pages/MessagesPage.qml"), { searching: true })
     }
 
     // A new mail from accountId, or from the first account for 0.

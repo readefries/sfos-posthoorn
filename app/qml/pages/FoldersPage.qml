@@ -58,6 +58,10 @@ Page {
                 onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
             }
             MenuItem {
+                text: qsTr("Search")
+                onClicked: app.search()
+            }
+            MenuItem {
                 text: qsTr("Refresh folder list")
                 onClicked: app.emailAgent.retrieveFolderList(page.accountId)
             }

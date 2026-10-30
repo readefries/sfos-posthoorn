@@ -17,6 +17,12 @@ Page {
     // The HTML part had nothing to show, so the text part is shown instead. Only once: "Use HTML
     // part" still shows the empty HTML.
     property bool htmlWasEmpty: false
+    // Read once and then kept here: EmailMessage doesn't tell.
+    property bool starred: false
+    onLoadedChanged: {
+        if (loaded)
+            starred = MessageFlags.isStarred(messageId)
+    }
 
     // Reading a body makes the plugin download it, so only read the one that's used, and only once
     // the message is set: the bindings can run before messageId is, which would request a download
@@ -196,13 +202,36 @@ Page {
                     width: 1
                     height: Theme.paddingLarge
                 }
-                Label {
+                Item {
                     width: parent.width
-                    text: message.subject
-                    wrapMode: Text.Wrap
-                    font.family: Theme.fontFamilyHeading
-                    font.pixelSize: Theme.fontSizeLarge
-                    color: Theme.highlightColor
+                    height: Math.max(subject.height, starButton.height)
+
+                    Label {
+                        id: subject
+                        width: parent.width - starButton.width - Theme.paddingSmall
+                        text: message.subject
+                        wrapMode: Text.Wrap
+                        font.family: Theme.fontFamilyHeading
+                        font.pixelSize: Theme.fontSizeLarge
+                        color: Theme.highlightColor
+                    }
+                    IconButton {
+                        id: starButton
+                        anchors {
+                            right: parent.right
+                            // Lined up with the subject's first line, and with the page margin.
+                            rightMargin: -Theme.paddingMedium
+                            top: parent.top
+                            topMargin: -Theme.paddingSmall
+                        }
+                        enabled: page.loaded
+                        icon.source: page.starred ? "image://theme/icon-m-favorite-selected"
+                                                  : "image://theme/icon-m-favorite"
+                        onClicked: {
+                            page.starred = !page.starred
+                            app.setStarred(page.messageId, page.starred)
+                        }
+                    }
                 }
                 Item {
                     width: 1

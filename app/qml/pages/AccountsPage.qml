@@ -99,6 +99,10 @@ Page {
                 onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
             }
             MenuItem {
+                text: qsTr("Search")
+                onClicked: app.search()
+            }
+            MenuItem {
                 text: qsTr("Sync all folders")
                 onClicked: app.emailAgent.accountsSyncAllFolders()
             }

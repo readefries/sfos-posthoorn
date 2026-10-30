@@ -8,6 +8,7 @@
 #include "archivefolders.h"
 #include "links.h"
 #include "messagebody.h"
+#include "messageflags.h"
 #include "outgoingmessage.h"
 #include "unifiedmessagelistmodel.h"
 
@@ -84,6 +85,10 @@ int main(int argc, char *argv[])
                                              [](QQmlEngine *, QJSEngine *) -> QObject * {
                                                  return new ArchiveFolders;
                                              });
+    qmlRegisterSingletonType<MessageFlags>("Posthoorn", 1, 0, "MessageFlags",
+                                           [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                               return new MessageFlags;
+                                           });
     qmlRegisterSingletonType<Links>("Posthoorn", 1, 0, "Links",
                                     [](QQmlEngine *, QJSEngine *) -> QObject * {
                                         return new Links;

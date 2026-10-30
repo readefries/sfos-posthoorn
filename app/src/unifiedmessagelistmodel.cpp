@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "unifiedmessagelistmodel.h"
 
+#include <qmailaccount.h>
 #include <qmailfolder.h>
+#include <qmailserviceaction.h>
 #include <qmailstore.h>
 
 UnifiedMessageListModel::UnifiedMessageListModel(QObject *parent)
@@ -32,6 +34,7 @@ QHash<int, QByteArray> UnifiedMessageListModel::roleNames() const
     roles.insert(FolderIdRole, "folderId");
     roles.insert(FolderNameRole, "folderName");
     roles.insert(HasAttachmentsRole, "hasAttachments");
+    roles.insert(StarredRole, "starred");
     roles.insert(SelectedRole, "selected");
     return roles;
 }
@@ -41,18 +44,122 @@ void UnifiedMessageListModel::setFolderIds(const QVariantList &ids)
     if (ids == m_folderIds)
         return;
     m_folderIds = ids;
-
-    QMailFolderIdList folders;
-    for (const QVariant &id : ids) {
-        const QMailFolderId folder(id.toULongLong());
-        if (folder.isValid())
-            folders.append(folder);
-    }
-    m_selected.clear();
-    setKey(folders.isEmpty() ? QMailMessageKey::nonMatchingKey()
-                             : QMailMessageKey::parentFolderId(folders));
+    updateKey();
     emit folderIdsChanged();
+}
+
+void UnifiedMessageListModel::setSearch(const QVariantMap &search)
+{
+    if (search == m_search)
+        return;
+    m_search = search;
+    updateKey();
+    emit searchChanged();
+}
+
+void UnifiedMessageListModel::updateKey()
+{
+    if (m_bodySearch) {
+        m_bodySearch->cancelOperation();
+        m_bodySearch->deleteLater();
+        m_bodySearch.clear();
+        emit searchingBodiesChanged();
+    }
+    m_bodyMatches.clear();
+    m_selected.clear();
     emit selectedMessageCountChanged();
+
+    // Deleted, but not gone from the store yet.
+    const QMailMessageKey present = QMailMessageKey::status(QMailMessage::Removed, QMailDataComparator::Excludes);
+
+    if (m_search.isEmpty()) {
+        QMailFolderIdList folders;
+        for (const QVariant &id : m_folderIds) {
+            const QMailFolderId folder(id.toULongLong());
+            if (folder.isValid())
+                folders.append(folder);
+        }
+        setKey(folders.isEmpty() ? QMailMessageKey::nonMatchingKey()
+                                 : QMailMessageKey::parentFolderId(folders) & present);
+        return;
+    }
+
+    const QString text = m_search.value(QStringLiteral("text")).toString().simplified();
+    bool anything = !text.isEmpty();
+    QMailMessageKey filter = present;
+    if (m_search.value(QStringLiteral("unread")).toBool()) {
+        filter &= QMailMessageKey::status(QMailMessage::Read, QMailDataComparator::Excludes);
+        anything = true;
+    }
+    if (m_search.value(QStringLiteral("starred")).toBool()) {
+        filter &= QMailMessageKey::status(QMailMessage::Important, QMailDataComparator::Includes);
+        anything = true;
+    }
+    if (m_search.value(QStringLiteral("attachments")).toBool()) {
+        filter &= QMailMessageKey::status(QMailMessage::HasAttachments, QMailDataComparator::Includes);
+        anything = true;
+    }
+    if (!anything) {
+        setKey(QMailMessageKey::nonMatchingKey());
+        return;
+    }
+    const int accountId = m_search.value(QStringLiteral("accountId")).toInt();
+    if (accountId > 0)
+        filter &= QMailMessageKey::parentAccountId(QMailAccountId(accountId));
+    QMailFolderIdList skipped;
+    for (const QMailAccountId &id : QMailStore::instance()->queryAccounts()) {
+        const QMailAccount account(id);
+        for (const QMailFolder::StandardFolder folder : { QMailFolder::TrashFolder, QMailFolder::JunkFolder }) {
+            const QMailFolderId folderId = account.standardFolder(folder);
+            if (folderId.isValid())
+                skipped.append(folderId);
+        }
+    }
+    if (!skipped.isEmpty())
+        filter &= QMailMessageKey::parentFolderId(skipped, QMailDataComparator::Excludes);
+
+    // Every word somewhere in the subject, sender or recipients.
+    QMailMessageKey textKey;
+    for (const QString &word : text.split(QLatin1Char(' '), QString::SkipEmptyParts)) {
+        textKey &= QMailMessageKey::subject(word, QMailDataComparator::Includes)
+                | QMailMessageKey::sender(word, QMailDataComparator::Includes)
+                | QMailMessageKey::recipients(word, QMailDataComparator::Includes);
+    }
+    m_searchFilter = filter;
+    m_textKey = textKey;
+    setKey(textKey.isEmpty() ? filter : filter & textKey);
+
+    if (!text.isEmpty() && m_search.value(QStringLiteral("body")).toBool()) {
+        // The messageserver looks through the text of the mails on the phone, and reports what it
+        // finds as it goes.
+        m_bodySearch = new QMailSearchAction(this);
+        connect(m_bodySearch.data(), &QMailSearchAction::messageIdsMatched,
+                this, &UnifiedMessageListModel::onBodiesMatched);
+        connect(m_bodySearch.data(), &QMailServiceAction::activityChanged,
+                this, &UnifiedMessageListModel::onBodySearchActivity);
+        m_bodySearch->searchMessages(filter, text, QMailSearchAction::Local);
+        emit searchingBodiesChanged();
+    }
+}
+
+void UnifiedMessageListModel::onBodiesMatched(const QMailMessageIdList &ids)
+{
+    if (ids.isEmpty())
+        return;
+    m_bodyMatches += ids;
+    setKey(m_searchFilter & (m_textKey | QMailMessageKey::id(m_bodyMatches)));
+}
+
+void UnifiedMessageListModel::onBodySearchActivity()
+{
+    if (!m_bodySearch)
+        return;
+    const QMailServiceAction::Activity activity = m_bodySearch->activity();
+    if (activity == QMailServiceAction::Successful || activity == QMailServiceAction::Failed) {
+        m_bodySearch->deleteLater();
+        m_bodySearch.clear();
+        emit searchingBodiesChanged();
+    }
 }
 
 QVariant UnifiedMessageListModel::data(const QMailMessageMetaData &metaData, int role) const
@@ -84,6 +191,8 @@ QVariant UnifiedMessageListModel::data(const QMailMessageMetaData &metaData, int
     }
     case HasAttachmentsRole:
         return (metaData.status() & QMailMessage::HasAttachments) != 0;
+    case StarredRole:
+        return (metaData.status() & QMailMessage::Important) != 0;
     case SelectedRole:
         return m_selected.contains(metaData.id());
     default:

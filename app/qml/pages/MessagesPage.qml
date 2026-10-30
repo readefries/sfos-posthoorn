@@ -4,44 +4,59 @@ import Sailfish.Silica 1.0
 import Nemo.Email 0.1
 import Posthoorn 1.0
 
+// A folder's mail, the unified inbox, or a search through all mail.
 Page {
     id: page
 
     // The folder's own name when not set.
     property string title
-    readonly property string shownTitle: title.length > 0 ? title : folder.displayName
+    readonly property string shownTitle: searching ? qsTr("Search")
+                                                   : title.length > 0 ? title : folder.displayName
     // The unified inbox: the folders in app.unifiedFolders, of any account.
     property bool unified: false
-    // A folder: both 0 for the unified inbox.
+    // Searching all folders of all accounts, or of searchAccountId.
+    property bool searching: false
+    // A folder: both 0 for the unified inbox and searching.
     property int accountId
     property int folderId
     property var accessor
+
+    // What is searched for; the header's fields set these.
+    property string searchText
+    property bool searchBody: false
+    property bool searchUnread: false
+    property bool searchStarred: false
+    property bool searchAttachments: false
+    property int searchAccountId
 
     // In selection mode a tap (un)selects a message, and the panel at the bottom acts on the
     // selected ones. The selection lives in the model, so it goes when the page does.
     property bool selecting: false
 
-    // One of these is used, the other one stays empty. The unified inbox's model leaves acting on
-    // messages to EmailAgent, which the functions below take care of.
-    readonly property QtObject messages: unified ? unifiedMessages : folderMessages
-
-    EmailMessageListModel {
-        id: folderMessages
-        folderAccessor: page.unified ? null : page.accessor
-    }
+    // Our model rather than the email plugin's, also for a single folder: it tells whether mail
+    // is starred, and works the same for all three. Acting on messages goes through EmailAgent.
+    readonly property QtObject messages: messageModel
 
     UnifiedMessageListModel {
-        id: unifiedMessages
-        folderIds: page.unified ? app.unifiedFolderIds : []
+        id: messageModel
+        folderIds: page.searching ? [] : page.unified ? app.unifiedFolderIds : [page.folderId]
+        search: !page.searching ? ({}) : {
+            "text": page.searchText,
+            "body": page.searchBody,
+            "unread": page.searchUnread,
+            "starred": page.searchStarred,
+            "attachments": page.searchAttachments,
+            "accountId": page.searchAccountId
+        }
     }
 
     EmailFolder {
         id: folder
-        folderAccessor: page.unified ? null : page.accessor
+        folderAccessor: page.unified || page.searching ? null : page.accessor
     }
 
     onStatusChanged: {
-        if (status !== PageStatus.Active)
+        if (status !== PageStatus.Active || searching)
             return
         if (unified)
             AppState.save("unified")
@@ -53,89 +68,66 @@ Page {
         id: remorse
     }
 
+    // The folders shown, as { accountId, folderId }.
+    function shownFolders() {
+        return unified ? app.unifiedFolders : [{ accountId: accountId, folderId: folderId }]
+    }
+
     function sync() {
-        if (!unified) {
-            app.emailAgent.retrieveMessageList(accountId, folderId)
-            return
-        }
-        var folders = app.unifiedFolders
+        var folders = shownFolders()
         for (var i = 0; i < folders.length; ++i)
             app.emailAgent.retrieveMessageList(folders[i].accountId, folders[i].folderId)
     }
 
     function loadOlder() {
-        if (!unified) {
-            app.emailAgent.getMoreMessages(folderId)
-            return
-        }
-        var folders = app.unifiedFolders
+        var folders = shownFolders()
         for (var i = 0; i < folders.length; ++i)
             app.emailAgent.getMoreMessages(folders[i].folderId)
     }
 
     function markSelected(read) {
-        if (!unified) {
+        var ids = messages.selectedMessageIds()
+        for (var i = 0; i < ids.length; ++i) {
             if (read)
-                folderMessages.markAsReadSelectedMessages()
+                app.emailAgent.markMessageAsRead(ids[i])
             else
-                folderMessages.markAsUnReadSelectedMessages()
-        } else {
-            var ids = unifiedMessages.selectedMessageIds()
-            for (var i = 0; i < ids.length; ++i) {
-                if (read)
-                    app.emailAgent.markMessageAsRead(ids[i])
-                else
-                    app.emailAgent.markMessageAsUnread(ids[i])
-            }
+                app.emailAgent.markMessageAsUnread(ids[i])
         }
         stopSelecting()
     }
 
     function moveSelected(folderId) {
-        if (!unified) {
-            folderMessages.moveSelectedMessages(folderId)
-        } else {
-            var ids = unifiedMessages.selectedMessageIds()
-            for (var i = 0; i < ids.length; ++i)
-                app.emailAgent.moveMessage(ids[i], folderId)
-        }
+        var ids = messages.selectedMessageIds()
+        for (var i = 0; i < ids.length; ++i)
+            app.emailAgent.moveMessage(ids[i], folderId)
         stopSelecting()
     }
 
     function archiveSelected() {
-        if (!unified) {
-            folderMessages.moveSelectedMessages(ArchiveFolders.folderId(accountId))
-        } else {
-            var ids = unifiedMessages.selectedMessageIds()
-            for (var i = 0; i < ids.length; ++i)
-                app.archive(ids[i])
-        }
+        var ids = messages.selectedMessageIds()
+        for (var i = 0; i < ids.length; ++i)
+            app.archive(ids[i])
         stopSelecting()
     }
 
     function deleteSelected() {
-        if (!unified)
-            folderMessages.deleteSelectedMessages()
-        else
-            app.emailAgent.deleteMessagesFromVariantList(unifiedMessages.selectedMessageIds())
+        app.emailAgent.deleteMessagesFromVariantList(messages.selectedMessageIds())
         stopSelecting()
     }
 
     // The account to move the selection within, 0 when it mixes accounts: QMF moves within one.
     readonly property int moveAccountId: {
-        if (!unified)
-            return accountId
         messages.selectedMessageCount
-        var accounts = unifiedMessages.selectedAccountIds()
+        var accounts = messages.selectedAccountIds()
         return accounts.length === 1 ? accounts[0] : 0
     }
 
     // Whether any of the selection can be archived; the rest stays where it is.
     readonly property bool canArchiveSelected: {
-        if (!unified)
+        if (!unified && !searching)
             return app.canArchive(accountId, folderId)
         messages.selectedMessageCount
-        var accounts = unifiedMessages.selectedAccountIds()
+        var accounts = messages.selectedAccountIds()
         for (var i = 0; i < accounts.length; ++i) {
             if (app.canArchive(accounts[i], 0))
                 return true
@@ -176,9 +168,86 @@ Page {
         clip: panel.expanded
         model: messages
 
-        header: PageHeader {
-            title: page.selecting ? qsTr("%n selected", "", messages.selectedMessageCount) : page.shownTitle
-            description: page.selecting ? page.shownTitle : qsTr("%n message(s)", "", messages.count)
+        header: Column {
+            width: list.width
+
+            PageHeader {
+                title: page.selecting ? qsTr("%n selected", "", messages.selectedMessageCount) : page.shownTitle
+                description: page.selecting ? page.shownTitle
+                                            : page.searching && messages.searchingBodies
+                                              ? qsTr("Looking in the text of mails…")
+                                              : qsTr("%n message(s)", "", messages.count)
+            }
+
+            SearchField {
+                id: searchField
+                visible: page.searching
+                width: parent.width
+                placeholderText: qsTr("Subject, sender or recipient")
+                inputMethodHints: Qt.ImhNoAutoUppercase
+                EnterKey.iconSource: "image://theme/icon-m-enter-close"
+                EnterKey.onClicked: {
+                    searchDelay.stop()
+                    page.searchText = text
+                    focus = false
+                }
+                onTextChanged: searchDelay.restart()
+                Component.onCompleted: {
+                    if (page.searching)
+                        forceActiveFocus()
+                }
+
+                // Not a new search for every letter typed.
+                Timer {
+                    id: searchDelay
+                    interval: 400
+                    onTriggered: page.searchText = searchField.text
+                }
+            }
+
+            TextSwitch {
+                visible: page.searching
+                text: qsTr("Also in the text of mails")
+                description: qsTr("Slower, and only mail whose text is downloaded")
+                checked: page.searchBody
+                onCheckedChanged: page.searchBody = checked
+            }
+            TextSwitch {
+                visible: page.searching
+                text: qsTr("Unread")
+                checked: page.searchUnread
+                onCheckedChanged: page.searchUnread = checked
+            }
+            TextSwitch {
+                visible: page.searching
+                text: qsTr("Starred")
+                checked: page.searchStarred
+                onCheckedChanged: page.searchStarred = checked
+            }
+            TextSwitch {
+                visible: page.searching
+                text: qsTr("With attachments")
+                checked: page.searchAttachments
+                onCheckedChanged: page.searchAttachments = checked
+            }
+
+            ComboBox {
+                visible: page.searching && app.accounts.numberOfAccounts > 1
+                label: qsTr("Accounts")
+                menu: ContextMenu {
+                    MenuItem {
+                        text: qsTr("All")
+                        onClicked: page.searchAccountId = 0
+                    }
+                    Repeater {
+                        model: app.accounts
+                        MenuItem {
+                            text: model.displayName
+                            onClicked: page.searchAccountId = model.mailAccountId
+                        }
+                    }
+                }
+            }
         }
 
         PullDownMenu {
@@ -207,19 +276,24 @@ Page {
                 onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
             }
             MenuItem {
+                visible: !page.selecting && !page.searching
+                text: qsTr("Search")
+                onClicked: app.search()
+            }
+            MenuItem {
                 visible: !page.selecting
                 text: qsTr("New mail")
                 onClicked: app.compose(page.accountId)
             }
             MenuItem {
-                visible: !page.selecting
+                visible: !page.selecting && !page.searching
                 text: qsTr("Sync")
                 onClicked: page.sync()
             }
         }
 
         PushUpMenu {
-            visible: !page.selecting && list.count > 0
+            visible: !page.selecting && !page.searching && list.count > 0
             busy: app.emailAgent.synchronizing
             MenuItem {
                 text: qsTr("Load older messages")
@@ -228,12 +302,18 @@ Page {
         }
 
         ViewPlaceholder {
-            enabled: list.count === 0
-            text: page.unified && app.unifiedFolders.length === 0 ? qsTr("No folders chosen")
-                                                                    : qsTr("No messages")
-            hintText: page.unified && app.unifiedFolders.length === 0
-                      ? qsTr("Choose the folders to show here in Settings, in the pulley")
-                      : qsTr("Pull down to sync")
+            enabled: list.count === 0 && !(page.searching && messages.searchingBodies)
+            // Below the search fields.
+            verticalOffset: page.searching && list.headerItem ? list.headerItem.height / 2 : 0
+            text: page.searching ? (page.searchText.trim().length > 0 || page.searchUnread || page.searchStarred
+                                    || page.searchAttachments ? qsTr("Nothing found") : "")
+                                 : page.unified && app.unifiedFolders.length === 0 ? qsTr("No folders chosen")
+                                                                                   : qsTr("No messages")
+            hintText: page.searching ? (text.length > 0 ? qsTr("Only mail on the phone is searched")
+                                                        : qsTr("Type something or pick a filter"))
+                                     : page.unified && app.unifiedFolders.length === 0
+                                       ? qsTr("Choose the folders to show here in Settings, in the pulley")
+                                       : qsTr("Pull down to sync")
         }
 
         section {
@@ -276,6 +356,10 @@ Page {
                         else
                             app.emailAgent.markMessageAsRead(model.messageId)
                     }
+                }
+                MenuItem {
+                    text: model.starred ? qsTr("Remove star") : qsTr("Star")
+                    onClicked: app.setStarred(model.messageId, !model.starred)
                 }
                 MenuItem {
                     text: qsTr("Move to…")
@@ -330,7 +414,7 @@ Page {
                         id: sender
                         anchors {
                             left: parent.left
-                            right: time.left
+                            right: model.starred ? star.left : time.left
                             rightMargin: Theme.paddingSmall
                         }
                         text: model.senderDisplayName
@@ -338,11 +422,23 @@ Page {
                         color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
                         truncationMode: TruncationMode.Fade
                     }
+                    Icon {
+                        id: star
+                        visible: model.starred
+                        anchors {
+                            right: time.left
+                            rightMargin: Theme.paddingSmall
+                            verticalCenter: time.verticalCenter
+                        }
+                        source: "image://theme/icon-s-favorite"
+                        highlighted: item.highlighted
+                    }
                     Label {
                         id: time
                         anchors.right: parent.right
-                        // In the unified inbox, where a message is when that isn't an inbox.
-                        text: (page.unified && model.folderId !== app.emailAgent.inboxFolderId(model.accountId)
+                        // In the unified inbox and search results, where a message is when that
+                        // isn't an inbox.
+                        text: ((page.unified || page.searching) && model.folderId !== app.emailAgent.inboxFolderId(model.accountId)
                                ? model.folderName + " · " : "")
                               + Format.formatDate(model.qDateTime, Formatter.TimeValue)
                         font.pixelSize: Theme.fontSizeExtraSmall

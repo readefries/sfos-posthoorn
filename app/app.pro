@@ -13,6 +13,7 @@ HEADERS += \
     src/archivefolders.h \
     src/links.h \
     src/messagebody.h \
+    src/messageflags.h \
     src/outgoingmessage.h \
     src/unifiedmessagelistmodel.h
 SOURCES += \
