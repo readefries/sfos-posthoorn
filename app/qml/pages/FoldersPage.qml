@@ -25,16 +25,27 @@ Page {
         if (status !== PageStatus.Active)
             return
         if (restoreFolderId > 0) {
-            var folderId = restoreFolderId
-            restoreFolderId = 0
-            var index = folders.indexFromFolderId(folderId)
-            if (index >= 0) {
-                // The name comes from the folder itself, see MessagesPage.
-                openFolder(index, folderId, "", PageStackAction.Immediate)
-                return
-            }
+            restoreLater.start()
+            return
         }
         AppState.save("folders", accountId)
+    }
+
+    // Opens the folder the app was left in. Right after this page becomes active, not while it
+    // does: see AccountsPage.
+    Timer {
+        id: restoreLater
+        interval: 0
+        onTriggered: {
+            var folderId = page.restoreFolderId
+            page.restoreFolderId = 0
+            var index = folders.indexFromFolderId(folderId)
+            if (index >= 0)
+                // The name comes from the folder itself, see MessagesPage.
+                page.openFolder(index, folderId, "", PageStackAction.Immediate)
+            else
+                AppState.save("folders", page.accountId)
+        }
     }
 
     FolderListModel {

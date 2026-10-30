@@ -37,10 +37,18 @@ Page {
             return
         if (!restored) {
             restored = true
-            restore()
+            restoreLater.start()
         } else {
             AppState.save("accounts")
         }
+    }
+
+    // Pushing while this page is still becoming active makes its status change again inside its
+    // own change: a binding loop. So right after instead.
+    Timer {
+        id: restoreLater
+        interval: 0
+        onTriggered: page.restore()
     }
 
     SilicaListView {
