@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include "archivefolder.h"
 #include "flowedtext.h"
 #include "linkcleaner.h"
 #include "mailaddresses.h"
@@ -68,6 +69,7 @@ private slots:
     void splitAddresses();
     void addresses();
     void formatAddresses();
+    void archiveFolder();
     void flowedShortLines();
     void flowedWraps();
     void flowedQuotes();
@@ -393,6 +395,24 @@ void TestMailContent::formatAddresses()
     const QString formatted = MailAddresses::format(QStringLiteral("Doe, Jan"), QStringLiteral("jan@example.org"));
     QCOMPARE(MailAddresses::split(formatted + QStringLiteral(", b@example.org")).size(), 2);
     QCOMPARE(MailAddresses::address(formatted), QStringLiteral("jan@example.org"));
+}
+
+void TestMailContent::archiveFolder()
+{
+    QCOMPARE(ArchiveFolder::guess(QStringList()), -1);
+    QCOMPARE(ArchiveFolder::guess(QStringList() << QStringLiteral("INBOX") << QStringLiteral("Sent")), -1);
+    QCOMPARE(ArchiveFolder::guess(QStringList() << QStringLiteral("INBOX") << QStringLiteral("Archive")), 1);
+    QCOMPARE(ArchiveFolder::guess(QStringList() << QStringLiteral("INBOX") << QStringLiteral("INBOX.Archief")), 1);
+    QCOMPARE(ArchiveFolder::guess(QStringList() << QStringLiteral("Projects/Archive") << QStringLiteral("Archives")),
+             1);
+    QCOMPARE(ArchiveFolder::guess(QStringList() << QStringLiteral("INBOX") << QStringLiteral("[Gmail]/All Mail")
+                                  << QStringLiteral("[Gmail]/Sent Mail")), 1);
+    QCOMPARE(ArchiveFolder::guess(QStringList() << QStringLiteral("[Google Mail]/Alle berichten")), 0);
+    QCOMPARE(ArchiveFolder::guess(QStringList() << QStringLiteral("[Gmail]/All Mail") << QStringLiteral("Archive")),
+             1);
+    // Only Gmail's All Mail, not a folder of one's own that happens to be called that.
+    QCOMPARE(ArchiveFolder::guess(QStringList() << QStringLiteral("All Mail")), -1);
+    QCOMPARE(ArchiveFolder::guess(QStringList() << QStringLiteral("Archived projects")), -1);
 }
 
 void TestMailContent::flowedShortLines()

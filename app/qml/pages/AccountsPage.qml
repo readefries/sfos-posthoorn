@@ -55,11 +55,17 @@ Page {
                 title: qsTr("Accounts")
             }
 
-            BackgroundItem {
+            ListItem {
                 id: unifiedInbox
                 visible: list.count > 0
-                height: Theme.itemSizeMedium
+                contentHeight: Theme.itemSizeMedium
                 onClicked: page.openUnified(PageStackAction.Animated)
+                menu: ContextMenu {
+                    MenuItem {
+                        text: qsTr("Mark all as read")
+                        onClicked: app.markFoldersRead(app.unifiedFolderIds)
+                    }
+                }
                 Column {
                     anchors {
                         left: parent.left
@@ -88,6 +94,10 @@ Page {
 
         PullDownMenu {
             busy: app.emailAgent.synchronizing
+            MenuItem {
+                text: qsTr("Settings")
+                onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
+            }
             MenuItem {
                 text: qsTr("Sync all folders")
                 onClicked: app.emailAgent.accountsSyncAllFolders()

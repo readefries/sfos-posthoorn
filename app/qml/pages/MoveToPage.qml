@@ -3,8 +3,8 @@ import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Nemo.Email 0.1
 
-// Picks the folder to move mail to. QMF only moves within an account, so it lists that account's
-// folders.
+// Picks the folder to move mail to, or another folder of one account. QMF only moves within an
+// account, so it lists that account's folders.
 Page {
     id: page
 
@@ -12,6 +12,8 @@ Page {
     // Where the mail is now; can't be picked.
     property int currentFolderId
     property int count: 1
+    property string title: qsTr("Move to")
+    property string description: qsTr("%n message(s)", "", count)
 
     signal folderChosen(int folderId)
 
@@ -26,8 +28,8 @@ Page {
         model: folders
 
         header: PageHeader {
-            title: qsTr("Move to")
-            description: qsTr("%n message(s)", "", page.count)
+            title: page.title
+            description: page.description
         }
 
         delegate: ListItem {

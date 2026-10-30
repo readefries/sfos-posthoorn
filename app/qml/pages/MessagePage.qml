@@ -326,6 +326,14 @@ Page {
                 onClicked: page.forward()
             }
             IconButton {
+                visible: app.canArchive(message.accountId, message.folderId)
+                icon.source: "image://theme/icon-m-file-archive-folder"
+                onClicked: {
+                    app.archive(page.messageId)
+                    pageStack.pop()
+                }
+            }
+            IconButton {
                 icon.source: "image://theme/icon-m-delete"
                 onClicked: remorse.execute(qsTr("Deleting"), function() {
                     app.emailAgent.deleteMessage(page.messageId)

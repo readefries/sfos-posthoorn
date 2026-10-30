@@ -55,6 +55,36 @@ ApplicationWindow {
         onAccountsUpdated: app.accountsVersion++
     }
 
+    // Whether mail in folderId of accountId can be archived: the account has an archive folder,
+    // and it isn't that one.
+    function canArchive(accountId, folderId) {
+        ArchiveFolders.revision
+        var archive = ArchiveFolders.folderId(accountId)
+        return archive > 0 && archive !== folderId
+    }
+
+    // Moves a mail to its account's archive folder. Each mail goes to its own account's, so this
+    // works for mail of several accounts too.
+    function archive(messageId) {
+        var accountId = agent.accountIdForMessage(messageId)
+        if (canArchive(accountId, agent.folderIdForMessage(messageId)))
+            agent.moveMessage(messageId, ArchiveFolders.folderId(accountId))
+    }
+
+    Component {
+        id: folderMessages
+        UnifiedMessageListModel { }
+    }
+
+    // Marks all mail in the folders as read, not just what a list has loaded.
+    function markFoldersRead(folderIds) {
+        var model = folderMessages.createObject(app, { folderIds: folderIds })
+        var ids = model.unreadMessageIds()
+        for (var i = 0; i < ids.length; ++i)
+            agent.markMessageAsRead(ids[i])
+        model.destroy()
+    }
+
     // A new mail from accountId, or from the first account for 0.
     function compose(accountId) {
         var from = accountId > 0 ? accountModel.emailAddressFromAccountId(accountId)

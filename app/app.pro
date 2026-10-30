@@ -10,12 +10,14 @@ include(../core/core.pri)
 HEADERS += \
     src/addresses.h \
     src/appstate.h \
+    src/archivefolders.h \
     src/links.h \
     src/messagebody.h \
     src/outgoingmessage.h \
     src/unifiedmessagelistmodel.h
 SOURCES += \
     src/appstate.cpp \
+    src/archivefolders.cpp \
     src/main.cpp \
     src/messagebody.cpp \
     src/outgoingmessage.cpp \
@@ -36,4 +38,5 @@ DISTFILES += \
     qml/pages/MoveToPage.qml \
     qml/pages/OpenLinkDialog.qml \
     qml/pages/ReceivedAttachmentItem.qml \
+    qml/pages/SettingsPage.qml \
     qml/pages/UnifiedFoldersPage.qml

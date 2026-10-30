@@ -53,7 +53,15 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   aren't a Silica pattern.)
 - ✓ Selection mode, from the long-press menu or the pulley: tap to (un)select, a docked panel
   to mark read/unread, move or delete the selection; select all/none in the pulley.
-- ✓ "Mark all as read" in a folder's pulley (covers the messages loaded in the list).
+- ✓ "Mark all as read" in the long-press menu of a folder and of the unified inbox, for all their
+  mail (it used to be in the message list's pulley, and covered only what the list had loaded).
+- ✓ Archive: from the long-press menu (at the top), the selection panel and the reader. QMF has
+  no archive folder, so it's the one chosen per account in Settings, or else the folder called
+  Archive (Archief, Archiv, …) or Gmail's All Mail (`core/archivefolder.cpp`). Each mail goes to
+  its own account's, so it also works on a selection of several accounts.
+- ✓ A Settings page: the unified inbox's folders, each account's archive folder. The message
+  list's pulley is Sync (closest), New mail, Settings; selecting is done with a long-press.
+- Configurable menu order, if the fixed order turns out not to fit.
 - ✓ Move to a folder of the same account, from the list and from an open mail.
 - Folders as part of the flow: folder drawer per account, favourites.
 - ✓ A unified inbox that can be configured: by default the inboxes of all accounts (also ones

@@ -54,6 +54,10 @@ Page {
         PullDownMenu {
             busy: app.emailAgent.synchronizing
             MenuItem {
+                text: qsTr("Settings")
+                onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
+            }
+            MenuItem {
                 text: qsTr("Refresh folder list")
                 onClicked: app.emailAgent.retrieveFolderList(page.accountId)
             }
@@ -76,8 +80,19 @@ Page {
         delegate: ListItem {
             enabled: model.canHaveMessages
             contentHeight: Theme.itemSizeSmall
+            menu: model.folderUnreadCount > 0 ? readMenu : null
 
             onClicked: page.openFolder(index, model.folderId, model.folderName, PageStackAction.Animated)
+
+            Component {
+                id: readMenu
+                ContextMenu {
+                    MenuItem {
+                        text: qsTr("Mark all as read")
+                        onClicked: app.markFoldersRead([model.folderId])
+                    }
+                }
+            }
 
             Label {
                 anchors {

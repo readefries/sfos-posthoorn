@@ -27,6 +27,9 @@ class AppState : public QObject
 public:
     explicit AppState(QObject *parent = nullptr);
 
+    // The state.ini file, also for the other settings.
+    static QString fileName();
+
     QString page() const { return m_page; }
     int accountId() const { return m_accountId; }
     int folderId() const { return m_folderId; }

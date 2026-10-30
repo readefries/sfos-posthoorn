@@ -3,10 +3,14 @@
 
 #include <QStandardPaths>
 
+QString AppState::fileName()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + QStringLiteral("/state.ini");
+}
+
 AppState::AppState(QObject *parent)
     : QObject(parent)
-    , m_settings(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)
-                 + QStringLiteral("/state.ini"), QSettings::IniFormat)
+    , m_settings(fileName(), QSettings::IniFormat)
 {
     m_page = m_settings.value(QStringLiteral("last/page"), QStringLiteral("accounts")).toString();
     m_accountId = m_settings.value(QStringLiteral("last/accountId"), 0).toInt();

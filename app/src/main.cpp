@@ -5,6 +5,7 @@
 
 #include "addresses.h"
 #include "appstate.h"
+#include "archivefolders.h"
 #include "links.h"
 #include "messagebody.h"
 #include "outgoingmessage.h"
@@ -79,6 +80,10 @@ int main(int argc, char *argv[])
                                        [](QQmlEngine *, QJSEngine *) -> QObject * {
                                            return new AppState;
                                        });
+    qmlRegisterSingletonType<ArchiveFolders>("Posthoorn", 1, 0, "ArchiveFolders",
+                                             [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                                 return new ArchiveFolders;
+                                             });
     qmlRegisterSingletonType<Links>("Posthoorn", 1, 0, "Links",
                                     [](QQmlEngine *, QJSEngine *) -> QObject * {
                                         return new Links;

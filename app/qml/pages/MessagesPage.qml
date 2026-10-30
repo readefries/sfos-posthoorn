@@ -73,16 +73,6 @@ Page {
             app.emailAgent.getMoreMessages(folders[i].folderId)
     }
 
-    function markAllRead() {
-        if (!unified) {
-            folderMessages.markAllMessagesAsRead()
-            return
-        }
-        var ids = unifiedMessages.unreadMessageIds()
-        for (var i = 0; i < ids.length; ++i)
-            app.emailAgent.markMessageAsRead(ids[i])
-    }
-
     function markSelected(read) {
         if (!unified) {
             if (read)
@@ -112,6 +102,17 @@ Page {
         stopSelecting()
     }
 
+    function archiveSelected() {
+        if (!unified) {
+            folderMessages.moveSelectedMessages(ArchiveFolders.folderId(accountId))
+        } else {
+            var ids = unifiedMessages.selectedMessageIds()
+            for (var i = 0; i < ids.length; ++i)
+                app.archive(ids[i])
+        }
+        stopSelecting()
+    }
+
     function deleteSelected() {
         if (!unified)
             folderMessages.deleteSelectedMessages()
@@ -127,6 +128,19 @@ Page {
         messages.selectedMessageCount
         var accounts = unifiedMessages.selectedAccountIds()
         return accounts.length === 1 ? accounts[0] : 0
+    }
+
+    // Whether any of the selection can be archived; the rest stays where it is.
+    readonly property bool canArchiveSelected: {
+        if (!unified)
+            return app.canArchive(accountId, folderId)
+        messages.selectedMessageCount
+        var accounts = unifiedMessages.selectedAccountIds()
+        for (var i = 0; i < accounts.length; ++i) {
+            if (app.canArchive(accounts[i], 0))
+                return true
+        }
+        return false
     }
 
     function startSelecting(index) {
@@ -186,20 +200,11 @@ Page {
                 onClicked: page.stopSelecting()
             }
 
-            MenuItem {
-                visible: !page.selecting && list.count > 0
-                text: qsTr("Select messages")
-                onClicked: page.startSelecting()
-            }
-            MenuItem {
-                visible: !page.selecting && list.count > 0
-                text: qsTr("Mark all as read")
-                onClicked: page.markAllRead()
-            }
+            // Sync is the closest to the finger.
             MenuItem {
                 visible: !page.selecting
-                text: qsTr("Sync")
-                onClicked: page.sync()
+                text: qsTr("Settings")
+                onClicked: pageStack.push(Qt.resolvedUrl("SettingsPage.qml"))
             }
             MenuItem {
                 visible: !page.selecting
@@ -207,9 +212,9 @@ Page {
                 onClicked: app.compose(page.accountId)
             }
             MenuItem {
-                visible: page.unified && !page.selecting
-                text: qsTr("Choose folders")
-                onClicked: pageStack.push(Qt.resolvedUrl("UnifiedFoldersPage.qml"))
+                visible: !page.selecting
+                text: qsTr("Sync")
+                onClicked: page.sync()
             }
         }
 
@@ -227,7 +232,7 @@ Page {
             text: page.unified && app.unifiedFolders.length === 0 ? qsTr("No folders chosen")
                                                                     : qsTr("No messages")
             hintText: page.unified && app.unifiedFolders.length === 0
-                      ? qsTr("Pull down to choose the folders to show here")
+                      ? qsTr("Choose the folders to show here in Settings, in the pulley")
                       : qsTr("Pull down to sync")
         }
 
@@ -258,6 +263,11 @@ Page {
             }
 
             menu: ContextMenu {
+                MenuItem {
+                    visible: app.canArchive(model.accountId, model.folderId)
+                    text: qsTr("Archive")
+                    onClicked: app.archive(model.messageId)
+                }
                 MenuItem {
                     text: model.readStatus ? qsTr("Mark as unread") : qsTr("Mark as read")
                     onClicked: {
@@ -391,6 +401,11 @@ Page {
                 enabled: panel.anySelected && page.moveAccountId > 0
                 onClicked: page.pickFolder(page.moveAccountId, page.folderId, messages.selectedMessageCount,
                                            page.moveSelected)
+            }
+            IconButton {
+                icon.source: "image://theme/icon-m-file-archive-folder"
+                enabled: panel.anySelected && page.canArchiveSelected
+                onClicked: page.archiveSelected()
             }
             IconButton {
                 icon.source: "image://theme/icon-m-delete"
