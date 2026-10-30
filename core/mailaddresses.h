@@ -18,6 +18,10 @@ QString address(const QString &entry);
 // Whether entry looks like something that can be sent to.
 bool isValid(const QString &entry);
 
+// "Name <address>", with the name quoted when it has characters that would break that up
+// ("Doe, Jan"). Just the address without a name.
+QString format(const QString &name, const QString &address);
+
 // entries without those whose address is in excluded, nor repeats of an address.
 QStringList without(const QStringList &entries, const QStringList &excluded);
 

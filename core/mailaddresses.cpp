@@ -47,6 +47,21 @@ bool isValid(const QString &entry)
     return valid.match(address(entry)).hasMatch();
 }
 
+QString format(const QString &name, const QString &address)
+{
+    const QString trimmed = name.trimmed();
+    if (trimmed.isEmpty() || trimmed.compare(address, Qt::CaseInsensitive) == 0)
+        return address;
+    static const QRegularExpression special(QStringLiteral("[()<>\\[\\]:;@\\\\,.\"]"));
+    QString shown = trimmed;
+    if (special.match(shown).hasMatch()) {
+        shown.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
+        shown.replace(QLatin1Char('"'), QLatin1String("\\\""));
+        shown = QLatin1Char('"') + shown + QLatin1Char('"');
+    }
+    return shown + QLatin1String(" <") + address + QLatin1Char('>');
+}
+
 QStringList without(const QStringList &entries, const QStringList &excluded)
 {
     QSet<QString> seen;

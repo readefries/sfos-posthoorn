@@ -17,6 +17,10 @@ public:
     Q_INVOKABLE QStringList split(const QString &text) const { return MailAddresses::split(text); }
     Q_INVOKABLE QString address(const QString &entry) const { return MailAddresses::address(entry); }
     Q_INVOKABLE bool isValid(const QString &entry) const { return MailAddresses::isValid(entry); }
+    Q_INVOKABLE QString format(const QString &name, const QString &address) const
+    {
+        return MailAddresses::format(name, address);
+    }
     Q_INVOKABLE QStringList without(const QStringList &entries, const QStringList &excluded) const
     {
         return MailAddresses::without(entries, excluded);

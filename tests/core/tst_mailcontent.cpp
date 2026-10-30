@@ -67,6 +67,7 @@ private slots:
     void quoteLines();
     void splitAddresses();
     void addresses();
+    void formatAddresses();
     void flowedShortLines();
     void flowedWraps();
     void flowedQuotes();
@@ -373,6 +374,25 @@ void TestMailContent::addresses()
                                     << QStringLiteral("b@x.org") << QStringLiteral("B <B@x.org>"),
                                     QStringList() << QStringLiteral("me@example.org")),
              QStringList() << QStringLiteral("b@x.org"));
+}
+
+void TestMailContent::formatAddresses()
+{
+    QCOMPARE(MailAddresses::format(QStringLiteral("Jan Doe"), QStringLiteral("jan@example.org")),
+             QStringLiteral("Jan Doe <jan@example.org>"));
+    QCOMPARE(MailAddresses::format(QStringLiteral("Doe, Jan"), QStringLiteral("jan@example.org")),
+             QStringLiteral("\"Doe, Jan\" <jan@example.org>"));
+    QCOMPARE(MailAddresses::format(QStringLiteral("J. \"Jan\" Doe"), QStringLiteral("jan@example.org")),
+             QStringLiteral("\"J. \\\"Jan\\\" Doe\" <jan@example.org>"));
+    QCOMPARE(MailAddresses::format(QString::fromUtf8("Jörn"), QStringLiteral("j@example.org")),
+             QString::fromUtf8("Jörn <j@example.org>"));
+    QCOMPARE(MailAddresses::format(QString(), QStringLiteral("jan@example.org")), QStringLiteral("jan@example.org"));
+    QCOMPARE(MailAddresses::format(QStringLiteral("jan@example.org"), QStringLiteral("jan@example.org")),
+             QStringLiteral("jan@example.org"));
+    // What split() and address() make of it again.
+    const QString formatted = MailAddresses::format(QStringLiteral("Doe, Jan"), QStringLiteral("jan@example.org"));
+    QCOMPARE(MailAddresses::split(formatted + QStringLiteral(", b@example.org")).size(), 2);
+    QCOMPARE(MailAddresses::address(formatted), QStringLiteral("jan@example.org"));
 }
 
 void TestMailContent::flowedShortLines()

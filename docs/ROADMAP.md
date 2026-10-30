@@ -83,7 +83,9 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - ✓ Our own message builder (`OutgoingMessage`, with QMF): the text goes out as
   `text/plain; charset=UTF-8; format=flowed`, quoted-printable, instead of the plugin's base64
   without flowed. Stored, sent and saved as drafts the way the plugin does.
-- Recipient suggestions from Contacts (needs the Contacts permission).
+- ✓ Recipient suggestions from Contacts (Silica's `RecipientField`, with the Contacts
+  permission). The fields keep addresses only; names come back from the mail replied to or the
+  contact when sending, quoted where needed (`MailAddresses::format`).
 - ✓ Continuing drafts: a tap in Drafts opens the composer with everything back, the quote
   formatted again (`core/maildraft.cpp` splits the text, `FlowedText::decode` joins flowed lines).
   Unchanged drafts aren't saved again; saving replaces the old version, sending or "Delete draft"

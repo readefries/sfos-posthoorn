@@ -2,7 +2,9 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Sailfish.Pickers 1.0
+import Sailfish.Contacts 1.0
 import Nemo.Email 0.1
+import org.nemomobile.contacts 1.0
 import Posthoorn 1.0
 
 // Writing a new mail, a reply or a forward, or continuing a draft. Accepting sends it; going
@@ -17,8 +19,10 @@ Dialog {
 
     // The address to send from; picks the account.
     property string from
+    // Recipients as "Name <address>, …".
     property string to
     property string cc
+    property string bcc
     property string subject
     property int responseType: EmailMessage.NoResponse
     property int originalMessageId
@@ -35,9 +39,10 @@ Dialog {
     property bool includeQuote: true
     property bool keepEarlierQuotes: false
     property bool writeBelowQuote: false
-    property bool showCcBcc: cc.length > 0
+    property bool showCcBcc: cc.length > 0 || bcc.length > 0
     property bool discarded: false
-    // What a continued draft looked like when opened: leaving it unchanged doesn't save it.
+    // What the mail looked like when the composer opened: leaving it unchanged doesn't save a
+    // draft, so neither does an untouched reply.
     property string openedState
 
     readonly property string currentQuote: keepEarlierQuotes && quoteWithEarlier.length > 0
@@ -103,20 +108,62 @@ Dialog {
     readonly property string signature: accountId > 0 && app.accounts.appendSignature(accountId)
                                         ? app.accounts.signature(accountId) : ""
 
-    function allValid(text) {
+    // The recipient fields suggest contacts but only keep addresses, so names are looked up again
+    // when sending: those of the mail replied to, or else the contact's.
+    property var knownNames: ({})
+    // Bumped when recipients change: recipientsToString() doesn't notify.
+    property int recipientsVersion
+
+    function rememberNames(text) {
         var entries = Addresses.split(text)
         for (var i = 0; i < entries.length; ++i) {
-            if (!Addresses.isValid(entries[i]))
-                return false
+            var open = entries[i].lastIndexOf("<")
+            if (open > 0) {
+                var name = entries[i].substring(0, open).trim().replace(/^"(.*)"$/, "$1").replace(/\\(.)/g, "$1")
+                knownNames[Addresses.address(entries[i])] = name
+            }
         }
-        return true
     }
 
-    readonly property bool hasRecipients: Addresses.split(toField.text).length > 0
-                                          || Addresses.split(ccField.text).length > 0
-                                          || Addresses.split(bccField.text).length > 0
-    readonly property bool recipientsValid: allValid(toField.text) && allValid(ccField.text)
-                                            && allValid(bccField.text)
+    function bareAddresses(text) {
+        return Addresses.split(text).map(function(entry) { return Addresses.address(entry) })
+    }
+
+    function addresses(field) {
+        return field.recipientsToString().split(",").map(function(address) {
+            return address.trim()
+        }).filter(function(address) { return address.length > 0 })
+    }
+
+    function recipients(field) {
+        return addresses(field).map(function(address) {
+            var name = knownNames[address.toLowerCase()]
+            if (!name) {
+                var person = people.personByEmailAddress(address)
+                name = person ? person.displayLabel : ""
+            }
+            return Addresses.format(name || "", address)
+        })
+    }
+
+    // What is typed into a recipient field only becomes a recipient when the field is left, and
+    // tapping Accept or going back doesn't leave it.
+    function takeTypedRecipients() {
+        toField.updateSummary()
+        ccField.updateSummary()
+        bccField.updateSummary()
+        recipientsVersion++
+    }
+
+    function allValid(field) {
+        return addresses(field).every(function(address) { return Addresses.isValid(address) })
+    }
+
+    readonly property bool hasRecipients: !toField.empty || !ccField.empty || !bccField.empty
+    readonly property bool recipientsValid: {
+        recipientsVersion
+        return allValid(toField) && allValid(ccField) && allValid(bccField)
+    }
 
     canAccept: hasRecipients && recipientsValid && forwardReady
 
@@ -131,9 +178,9 @@ Dialog {
 
     function fill(message) {
         message.from = fromBox.value
-        message.to = Addresses.split(toField.text)
-        message.cc = Addresses.split(ccField.text)
-        message.bcc = Addresses.split(bccField.text)
+        message.to = recipients(toField)
+        message.cc = recipients(ccField)
+        message.bcc = recipients(bccField)
         message.subject = subjectField.text
         message.body = composedBody()
         message.responseType = responseType
@@ -149,7 +196,7 @@ Dialog {
         message.keptParts = kept
     }
 
-    // Everything that ends up in the mail, to tell whether a draft was changed.
+    // Everything that ends up in the mail, to tell whether anything was changed.
     function state() {
         var paths = []
         for (var i = 0; i < files.count; ++i)
@@ -157,7 +204,8 @@ Dialog {
         var kept = []
         for (var k = 0; k < draftFiles.count; ++k)
             kept.push(draftFiles.get(k).location)
-        return JSON.stringify([fromBox.value, toField.text, ccField.text, bccField.text, subjectField.text,
+        return JSON.stringify([fromBox.value, recipients(toField), recipients(ccField), recipients(bccField),
+                               subjectField.text,
                                composedBody(), paths, kept, forwardedLocations()])
     }
 
@@ -170,8 +218,7 @@ Dialog {
         from = outgoing.from
         to = outgoing.to.join(", ")
         cc = outgoing.cc.join(", ")
-        bccField.text = outgoing.bcc.join(", ")
-        showCcBcc = cc.length > 0 || bccField.text.length > 0
+        bcc = outgoing.bcc.join(", ")
         subject = outgoing.subject
         responseType = outgoing.responseType
         originalMessageId = outgoing.originalMessageId
@@ -183,6 +230,16 @@ Dialog {
         var attachments = outgoing.draftAttachments()
         for (var i = 0; i < attachments.length; ++i)
             draftFiles.append(attachments[i])
+    }
+
+    onAcceptBlocked: {
+        takeTypedRecipients()
+        if (canAccept)
+            accept()
+    }
+    onAcceptPendingChanged: {
+        if (acceptPending)
+            takeTypedRecipients()
     }
 
     onAccepted: {
@@ -199,9 +256,8 @@ Dialog {
     }
 
     onRejected: {
-        if (discarded || (body.text.trim().length === 0 && files.count === 0 && draftFiles.count === 0))
-            return
-        if (draftId > 0 && state() === openedState)
+        takeTypedRecipients()
+        if (discarded || state() === openedState)
             return
         fill(outgoing)
         var accountId = outgoing.saveDraft()
@@ -220,7 +276,13 @@ Dialog {
         var index = identities.indexFromAddress(from)
         if (index >= 0)
             fromBox.currentIndex = index
-        if (toField.text.length === 0)
+        rememberNames(to)
+        rememberNames(cc)
+        rememberNames(bcc)
+        toField.setEmailRecipients(bareAddresses(to))
+        ccField.setEmailRecipients(bareAddresses(cc))
+        bccField.setEmailRecipients(bareAddresses(bcc))
+        if (to.length === 0)
             toField.forceActiveFocus()
         else
             body.forceActiveFocus()
@@ -228,8 +290,12 @@ Dialog {
         // too.
         if (forwarding && !forwardReady)
             original.downloadMessage()
-        if (draftId > 0)
-            openedState = state()
+        openedState = state()
+    }
+
+    // For the recipient fields' suggestions.
+    PeopleModel {
+        id: people
     }
 
     EmailMessage {
@@ -366,39 +432,46 @@ Dialog {
                 }
             }
 
-            TextField {
+            RecipientField {
                 id: toField
-                width: parent.width
-                label: qsTr("To")
-                placeholderText: label
-                text: dialog.to
-                inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
-                errorHighlight: !dialog.allValid(text)
-                EnterKey.iconSource: "image://theme/icon-m-enter-next"
-                EnterKey.onClicked: (dialog.showCcBcc ? ccField : subjectField).forceActiveFocus()
+                placeholderText: qsTr("To")
+                summaryPlaceholderText: qsTr("To")
+                contactSearchModel: people
+                showLabel: true
+                inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase | Qt.ImhEmailCharactersOnly
+                onSelectionChanged: dialog.recipientsVersion++
+                onLastFieldExited: (dialog.showCcBcc ? ccField : subjectField).forceActiveFocus()
             }
-            TextField {
+            RecipientField {
                 id: ccField
                 visible: dialog.showCcBcc
-                width: parent.width
-                label: qsTr("Cc")
-                placeholderText: label
-                text: dialog.cc
-                inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
-                errorHighlight: !dialog.allValid(text)
-                EnterKey.iconSource: "image://theme/icon-m-enter-next"
-                EnterKey.onClicked: bccField.forceActiveFocus()
+                placeholderText: qsTr("Cc")
+                summaryPlaceholderText: qsTr("Cc")
+                contactSearchModel: people
+                showLabel: true
+                inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase | Qt.ImhEmailCharactersOnly
+                onSelectionChanged: dialog.recipientsVersion++
+                onLastFieldExited: bccField.forceActiveFocus()
             }
-            TextField {
+            RecipientField {
                 id: bccField
                 visible: dialog.showCcBcc
-                width: parent.width
-                label: qsTr("Bcc")
-                placeholderText: label
-                inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
-                errorHighlight: !dialog.allValid(text)
-                EnterKey.iconSource: "image://theme/icon-m-enter-next"
-                EnterKey.onClicked: subjectField.forceActiveFocus()
+                placeholderText: qsTr("Bcc")
+                summaryPlaceholderText: qsTr("Bcc")
+                contactSearchModel: people
+                showLabel: true
+                inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase | Qt.ImhEmailCharactersOnly
+                onSelectionChanged: dialog.recipientsVersion++
+                onLastFieldExited: subjectField.forceActiveFocus()
+            }
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: !dialog.recipientsValid
+                text: qsTr("Not every recipient is a valid address.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.errorColor
             }
             TextField {
                 id: subjectField
