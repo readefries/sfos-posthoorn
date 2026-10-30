@@ -368,13 +368,13 @@ Dialog {
                 onClicked: {
                     if (dialog.draftId === 0) {
                         dialog.discarded = true
-                        pageStack.pop()
+                        app.popFrom(dialog)
                         return
                     }
                     remorse.execute(qsTr("Deleting draft"), function() {
                         dialog.discarded = true
                         app.emailAgent.deleteMessage(dialog.draftId)
-                        pageStack.pop()
+                        app.popFrom(dialog)
                     })
                 }
             }

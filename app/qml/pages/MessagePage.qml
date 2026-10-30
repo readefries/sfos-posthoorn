@@ -176,7 +176,7 @@ Page {
                     picker.folderChosen.connect(function(folderId) {
                         app.emailAgent.moveMessage(page.messageId, folderId)
                         // Back to the list: the mail isn't in this folder any more.
-                        pageStack.pop(pageStack.previousPage(page))
+                        app.popFrom(picker, pageStack.previousPage(page))
                     })
                 }
             }
@@ -184,7 +184,7 @@ Page {
                 text: qsTr("Mark as unread")
                 onClicked: {
                     app.emailAgent.markMessageAsUnread(page.messageId)
-                    pageStack.pop()
+                    app.popFrom(page)
                 }
             }
         }
@@ -384,14 +384,14 @@ Page {
                 icon.source: "image://theme/icon-m-file-archive-folder"
                 onClicked: {
                     app.archive(page.messageId)
-                    pageStack.pop()
+                    app.popFrom(page)
                 }
             }
             IconButton {
                 icon.source: "image://theme/icon-m-delete"
                 onClicked: remorse.execute(qsTr("Deleting"), function() {
                     app.emailAgent.deleteMessage(page.messageId)
-                    pageStack.pop()
+                    app.popFrom(page)
                 })
             }
         }

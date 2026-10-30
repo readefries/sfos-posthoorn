@@ -89,6 +89,35 @@ ApplicationWindow {
         model.destroy()
     }
 
+    // Goes back from page to target, or to the page below it. Only while page is on top: it may
+    // have been left already, e.g. during a remorse timer. And not during a page transition, which
+    // makes popping fail ("Cannot pop while operation is in progress"): then right after it.
+    function popFrom(page, target) {
+        if (pageStack.currentPage !== page)
+            return
+        if (pageStack.busy) {
+            pendingPop = { page: page, target: target }
+            return
+        }
+        if (target)
+            pageStack.pop(target)
+        else
+            pageStack.pop()
+    }
+
+    property var pendingPop: null
+
+    Connections {
+        target: pageStack
+        onBusyChanged: {
+            if (pageStack.busy || !app.pendingPop)
+                return
+            var pending = app.pendingPop
+            app.pendingPop = null
+            app.popFrom(pending.page, pending.target)
+        }
+    }
+
     // Searching all mail of all accounts.
     function search() {
         pageStack.push(Qt.resolvedUrl("pages/MessagesPage.qml"), { searching: true })

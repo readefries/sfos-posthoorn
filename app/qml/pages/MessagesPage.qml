@@ -127,9 +127,9 @@ Page {
         if (!unified && !searching)
             return app.canArchive(accountId, folderId)
         messages.selectedMessageCount
-        var accounts = messages.selectedAccountIds()
-        for (var i = 0; i < accounts.length; ++i) {
-            if (app.canArchive(accounts[i], 0))
+        var ids = messages.selectedMessageIds()
+        for (var i = 0; i < ids.length; ++i) {
+            if (app.canArchive(app.emailAgent.accountIdForMessage(ids[i]), app.emailAgent.folderIdForMessage(ids[i])))
                 return true
         }
         return false
@@ -155,7 +155,7 @@ Page {
                                     })
         picker.folderChosen.connect(function(folderId) {
             moved(folderId)
-            pageStack.pop(page)
+            app.popFrom(picker, page)
         })
     }
 

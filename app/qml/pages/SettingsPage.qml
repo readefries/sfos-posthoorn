@@ -72,7 +72,7 @@ Page {
                                                     })
                         picker.folderChosen.connect(function(folderId) {
                             ArchiveFolders.choose(item.accountId, folderId)
-                            pageStack.pop(page)
+                            app.popFrom(picker, page)
                         })
                     }
 
