@@ -80,6 +80,8 @@ public:
     // Stores the message in the account's Drafts folder, replacing what an earlier call saved or
     // the draft loaded. Returns its account's id, 0 when it couldn't be stored.
     Q_INVOKABLE int saveDraft();
+    // The draft saveDraft() stored or loadDraft() loaded, 0 for none.
+    Q_INVOKABLE int draftId() const { return int(m_draftId.toULongLong()); }
 
 signals:
     void changed();

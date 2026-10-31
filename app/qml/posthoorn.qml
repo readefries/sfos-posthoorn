@@ -199,6 +199,76 @@ ApplicationWindow {
         }
     }
 
+    Component {
+        id: outgoingComponent
+        OutgoingMessage { }
+    }
+
+    // A message to fill and give to sendLater(), owned by the app rather than the composer.
+    function createOutgoing() {
+        return outgoingComponent.createObject(app)
+    }
+
+    // Sending can be undone for a few seconds. The mail is a draft meanwhile, so it isn't lost when
+    // the app goes; this timer rather than the remorse popup sends it, as the popup goes with its page.
+    property QtObject pendingSend: null
+
+    Timer {
+        id: sendTimer
+        // A little after the popup's own countdown.
+        interval: 5500
+        onTriggered: app.sendNow()
+    }
+
+    function sendLater(message, page) {
+        if (pendingSend)
+            sendNow()
+        if (message.saveDraft() === 0) {
+            Notices.show(qsTr("The mail couldn't be stored: %1").arg(message.error), Notice.Long, Notice.Center)
+            message.destroy()
+            return
+        }
+        pendingSend = message
+        sendTimer.restart()
+        if (page) {
+            var popup = Remorse.popupAction(page, qsTr("Sending"), function() { app.sendNow() })
+            if (popup)
+                popup.canceled.connect(app.undoSend)
+        }
+    }
+
+    function sendNow() {
+        sendTimer.stop()
+        var message = pendingSend
+        if (!message)
+            return
+        pendingSend = null
+        var accountId = message.send()
+        if (accountId > 0) {
+            agent.processSendingQueue(accountId)
+            // So the server's copy of a draft goes too.
+            agent.exportUpdates(accountId)
+        } else {
+            Notices.show(qsTr("The mail couldn't be put in the Outbox: %1").arg(message.error),
+                         Notice.Long, Notice.Center)
+        }
+        message.destroy()
+    }
+
+    // Back to the composer, with the mail as it was.
+    function undoSend() {
+        sendTimer.stop()
+        var message = pendingSend
+        if (!message)
+            return
+        pendingSend = null
+        var draftId = message.draftId()
+        message.destroy()
+        whenIdle(function() {
+            pageStack.push(Qt.resolvedUrl("pages/ComposePage.qml"), { draftId: draftId })
+        })
+    }
+
     // Searching all mail of all accounts.
     function search() {
         pageStack.push(Qt.resolvedUrl("pages/MessagesPage.qml"), { searching: true })

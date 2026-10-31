@@ -244,17 +244,14 @@ Dialog {
             takeTypedRecipients()
     }
 
+    // Sent after a few seconds, which can be undone; the app does that, as this page is gone by then.
     onAccepted: {
-        fill(outgoing)
-        var accountId = outgoing.send()
-        if (accountId > 0) {
-            app.emailAgent.processSendingQueue(accountId)
-            // So the server's copy of the draft goes too.
-            if (draftId > 0)
-                app.emailAgent.exportUpdates(accountId)
-        } else
-            Notices.show(qsTr("The mail couldn't be put in the Outbox: %1").arg(outgoing.error),
-                         Notice.Long, Notice.Center)
+        var message = app.createOutgoing()
+        if (draftId > 0)
+            message.loadDraft(draftId)
+        fill(message)
+        app.sendLater(message, pageStack.currentPage === dialog ? pageStack.previousPage(dialog)
+                                                               : pageStack.currentPage)
     }
 
     onRejected: {
