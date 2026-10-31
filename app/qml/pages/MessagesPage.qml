@@ -11,17 +11,18 @@ Page {
     // The folder's own name when not set.
     property string title
     readonly property string shownTitle: searching ? qsTr("Search")
-                                                   : starred ? qsTr("Starred")
+                                                   : virtualFolder ? app.virtualFolderName(folderId)
                                                    : title.length > 0 ? title : folder.displayName
     // The unified inbox: the folders in app.unifiedFolders, of any account.
     property bool unified: false
     // Searching all folders of all accounts, or of searchAccountId.
     property bool searching: false
-    // A folder: both 0 for the unified inbox and searching. folderId is app.starredFolderId for
-    // the account's starred mail.
+    // A folder: both 0 for the unified inbox and searching. folderId can be one of the account's
+    // virtual folders (app.starredFolderId, app.snoozedFolderId).
     property int accountId
     property int folderId
-    readonly property bool starred: !unified && !searching && folderId === app.starredFolderId
+    readonly property bool virtualFolder: !unified && !searching && app.isVirtualFolder(folderId)
+    readonly property bool snoozedFolder: virtualFolder && folderId === app.snoozedFolderId
     property var accessor
 
     // What is searched for; the header's fields set these.
@@ -42,8 +43,11 @@ Page {
 
     UnifiedMessageListModel {
         id: messageModel
-        folderIds: page.searching || page.starred ? [] : page.unified ? app.unifiedFolderIds : [page.folderId]
-        search: page.starred ? { "starred": true, "accountId": page.accountId } : !page.searching ? ({}) : {
+        folderIds: page.searching || page.virtualFolder ? [] : page.unified ? app.unifiedFolderIds : [page.folderId]
+        // Snoozed mail is out of sight until it's time.
+        hiddenIds: Snoozes.messageIds
+        search: page.virtualFolder ? app.virtualFolderSearch(page.folderId, page.accountId)
+              : !page.searching ? ({}) : {
             "text": page.searchText,
             "body": page.searchBody,
             "unread": page.searchUnread,
@@ -55,7 +59,7 @@ Page {
 
     EmailFolder {
         id: folder
-        folderAccessor: page.unified || page.searching || page.starred ? null : page.accessor
+        folderAccessor: page.unified || page.searching || page.virtualFolder ? null : page.accessor
     }
 
     onStatusChanged: {
@@ -82,8 +86,8 @@ Page {
     }
 
     function sync() {
-        // Starred mail can be in any folder.
-        if (starred) {
+        // Its mail can be in any folder.
+        if (virtualFolder) {
             app.emailAgent.synchronize(accountId)
             return
         }
@@ -137,7 +141,7 @@ Page {
 
     // Whether any of the selection can be archived; the rest stays where it is.
     readonly property bool canArchiveSelected: {
-        if (!unified && !searching && !starred)
+        if (!unified && !searching && !virtualFolder)
             return app.canArchive(accountId, folderId)
         messages.selectedMessageCount
         var ids = messages.selectedMessageIds()
@@ -363,7 +367,7 @@ Page {
         }
 
         PushUpMenu {
-            visible: !page.selecting && !page.searching && !page.starred && list.count > 0
+            visible: !page.selecting && !page.searching && !page.virtualFolder && list.count > 0
             busy: app.emailAgent.synchronizing
             MenuItem {
                 text: qsTr("Load older messages")
@@ -375,12 +379,14 @@ Page {
             enabled: list.count === 0 && !(page.searching && (messages.searchingBodies || messages.searchingServer))
             // Below the search fields.
             verticalOffset: page.searching && list.headerItem ? list.headerItem.height / 2 : 0
-            text: page.starred ? qsTr("No starred mail")
+            text: page.snoozedFolder ? qsTr("Nothing snoozed")
+                  : page.virtualFolder ? qsTr("No starred mail")
                   : page.searching ? (page.searchText.trim().length > 0 || page.searchUnread || page.searchStarred
                                     || page.searchAttachments ? qsTr("Nothing found") : "")
                                  : page.unified && app.unifiedFolders.length === 0 ? qsTr("No folders chosen")
                                                                                    : qsTr("No messages")
-            hintText: page.starred ? qsTr("Star mail from its long-press menu")
+            hintText: page.snoozedFolder ? qsTr("Snooze mail from its long-press menu")
+                      : page.virtualFolder ? qsTr("Star mail from its long-press menu")
                       : page.searching ? (text.length > 0 ? (messages.serverSearched ? qsTr("Not on the server either")
                                                                                    : qsTr("Only mail on the phone was searched"))
                                                         : qsTr("Type something or pick a filter"))
@@ -415,11 +421,32 @@ Page {
                     messages.selectMessage(index)
             }
 
+            // When a snoozed mail comes back.
+            function snoozedUntil() {
+                var until = Snoozes.until(model.messageId)
+                //: In the Snoozed folder: when a mail comes back. %1 is a date and time.
+                return qsTr("until %1").arg(Format.formatDate(until, Formatter.DateMedium) + " "
+                                            + Format.formatDate(until, Formatter.TimeValue))
+            }
+
             menu: ContextMenu {
                 MenuItem {
                     visible: app.canArchive(model.accountId, model.folderId)
                     text: qsTr("Archive")
                     onClicked: app.archive(model.messageId)
+                }
+                MenuItem {
+                    text: page.snoozedFolder ? qsTr("Snooze until another time…") : qsTr("Snooze…")
+                    onClicked: app.pickSnooze(page, [model.messageId])
+                }
+                MenuItem {
+                    visible: page.snoozedFolder
+                    text: qsTr("Unsnooze")
+                    onClicked: {
+                        var id = model.messageId
+                        Snoozes.unsnooze(id)
+                        app.emailAgent.markMessageAsUnread(id)
+                    }
                 }
                 MenuItem {
                     text: model.readStatus ? qsTr("Mark as unread") : qsTr("Mark as read")
@@ -511,9 +538,10 @@ Page {
                         anchors.right: parent.right
                         // In the unified inbox and search results, where a message is when that
                         // isn't an inbox.
-                        text: ((page.unified || page.searching || page.starred) && model.folderId !== app.emailAgent.inboxFolderId(model.accountId)
+                        text: ((page.unified || page.searching || page.virtualFolder) && model.folderId !== app.emailAgent.inboxFolderId(model.accountId)
                                ? model.folderName + " · " : "")
-                              + Format.formatDate(model.qDateTime, Formatter.TimeValue)
+                              + (page.snoozedFolder ? item.snoozedUntil()
+                                                    : Format.formatDate(model.qDateTime, Formatter.TimeValue))
                         font.pixelSize: Theme.fontSizeExtraSmall
                         color: Theme.secondaryColor
                     }

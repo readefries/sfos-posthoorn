@@ -18,6 +18,7 @@ HEADERS += \
     src/messagebody.h \
     src/messageflags.h \
     src/outgoingmessage.h \
+    src/snoozes.h \
     src/unifiedmessagelistmodel.h
 SOURCES += \
     src/appstate.cpp \
@@ -26,6 +27,7 @@ SOURCES += \
     src/main.cpp \
     src/messagebody.cpp \
     src/outgoingmessage.cpp \
+    src/snoozes.cpp \
     src/unifiedmessagelistmodel.cpp
 
 SAILFISHAPP_ICONS = 86x86 108x108 128x128 172x172
@@ -55,5 +57,6 @@ DISTFILES += \
     qml/pages/OpenLinkDialog.qml \
     qml/pages/ReceivedAttachmentItem.qml \
     qml/pages/SettingsPage.qml \
-    qml/pages/StarredFolderItem.qml \
+    qml/pages/SnoozePage.qml \
+    qml/pages/VirtualFolderItem.qml \
     qml/pages/UnifiedFoldersPage.qml

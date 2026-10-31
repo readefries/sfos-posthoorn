@@ -28,11 +28,12 @@ ListItem {
             onClicked: AppState.setFavourite(item.accountId, item.folderId, !favourite)
         }
         MenuItem {
-            visible: item.unreadCount > 0
+            // Snoozed mail is read already; its count is how much is snoozed.
+            visible: item.unreadCount > 0 && item.folderId !== app.snoozedFolderId
             text: qsTr("Mark all as read")
             onClicked: {
-                if (item.folderId === app.starredFolderId)
-                    app.markStarredRead(item.accountId)
+                if (app.isVirtualFolder(item.folderId))
+                    app.markVirtualFolderRead(item.accountId, item.folderId)
                 else
                     app.markFoldersRead([item.folderId])
             }

@@ -39,8 +39,8 @@ Page {
         onTriggered: {
             var folderId = page.restoreFolderId
             page.restoreFolderId = 0
-            if (folderId === app.starredFolderId) {
-                app.openStarred(page.accountId, PageStackAction.Immediate)
+            if (app.isVirtualFolder(folderId)) {
+                app.openVirtualFolder(page.accountId, folderId, PageStackAction.Immediate)
                 return
             }
             var index = folders.indexFromFolderId(folderId)
@@ -71,8 +71,15 @@ Page {
                 title: page.title
             }
 
-            StarredFolderItem {
+            VirtualFolderItem {
                 accountId: page.accountId
+                folderId: app.starredFolderId
+            }
+            // Only while something is snoozed.
+            VirtualFolderItem {
+                visible: unreadCount > 0
+                accountId: page.accountId
+                folderId: app.snoozedFolderId
             }
         }
 

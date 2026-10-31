@@ -11,6 +11,7 @@
 #include "messagebody.h"
 #include "messageflags.h"
 #include "outgoingmessage.h"
+#include "snoozes.h"
 #include "unifiedmessagelistmodel.h"
 
 #include <sailfishapp.h>
@@ -90,6 +91,10 @@ int main(int argc, char *argv[])
                                            [](QQmlEngine *, QJSEngine *) -> QObject * {
                                                return new MessageFlags;
                                            });
+    qmlRegisterSingletonType<Snoozes>("Posthoorn", 1, 0, "Snoozes",
+                                      [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                          return new Snoozes;
+                                      });
     qmlRegisterSingletonType<Links>("Posthoorn", 1, 0, "Links",
                                     [](QQmlEngine *, QJSEngine *) -> QObject * {
                                         return new Links;

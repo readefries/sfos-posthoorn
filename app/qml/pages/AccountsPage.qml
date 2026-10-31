@@ -133,19 +133,21 @@ Page {
 
                     readonly property int accountId: parseInt(modelData.split("/")[0])
                     readonly property int folderId: parseInt(modelData.split("/")[1])
-                    // The account's virtual Starred folder rather than a real one.
-                    readonly property bool starred: folderId === app.starredFolderId
-                    readonly property int unreadCount: starred ? starredMail.unreadCount : folder.folderUnreadCount
+                    // One of the account's virtual folders rather than a real one.
+                    readonly property bool virtual: app.isVirtualFolder(folderId)
+                    readonly property int unreadCount: !virtual ? folder.folderUnreadCount
+                                                       : folderId === app.snoozedFolderId ? virtualMail.count
+                                                       : virtualMail.unreadCount
 
                     // Not for a folder that's gone, or of an account that's gone.
                     visible: app.accounts.indexFromAccountId(accountId) >= 0
-                             && (starred || folder.displayName.length > 0)
+                             && (virtual || folder.displayName.length > 0)
                     width: parent.width
                     contentHeight: visible ? Theme.itemSizeMedium : 0
 
                     onClicked: {
-                        if (starred)
-                            app.openStarred(accountId, PageStackAction.Animated)
+                        if (virtual)
+                            app.openVirtualFolder(accountId, folderId, PageStackAction.Animated)
                         else
                             pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
                                                accountId: accountId,
@@ -156,11 +158,11 @@ Page {
 
                     menu: ContextMenu {
                         MenuItem {
-                            visible: favourite.unreadCount > 0
+                            visible: favourite.unreadCount > 0 && favourite.folderId !== app.snoozedFolderId
                             text: qsTr("Mark all as read")
                             onClicked: {
-                                if (favourite.starred)
-                                    app.markStarredRead(favourite.accountId)
+                                if (favourite.virtual)
+                                    app.markVirtualFolderRead(favourite.accountId, favourite.folderId)
                                 else
                                     app.markFoldersRead([favourite.folderId])
                             }
@@ -173,12 +175,12 @@ Page {
 
                     EmailFolder {
                         id: folder
-                        folderAccessor: favourite.starred ? null : app.emailAgent.accessorFromFolderId(favourite.folderId)
+                        folderAccessor: favourite.virtual ? null : app.emailAgent.accessorFromFolderId(favourite.folderId)
                     }
 
                     UnifiedMessageListModel {
-                        id: starredMail
-                        search: favourite.starred ? { "starred": true, "accountId": favourite.accountId } : ({})
+                        id: virtualMail
+                        search: favourite.virtual ? app.virtualFolderSearch(favourite.folderId, favourite.accountId) : ({})
                     }
 
                     Column {
@@ -191,7 +193,7 @@ Page {
                         }
                         Label {
                             width: parent.width
-                            text: favourite.starred ? qsTr("Starred") : folder.displayName
+                            text: favourite.virtual ? app.virtualFolderName(favourite.folderId) : folder.displayName
                             color: favourite.highlighted ? Theme.highlightColor : Theme.primaryColor
                             truncationMode: TruncationMode.Fade
                         }

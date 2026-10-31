@@ -176,6 +176,11 @@ Page {
                 onClicked: page.showImages = true
             }
             MenuItem {
+                text: qsTr("Snooze…")
+                // Back to the list afterwards: the mail is out of sight there now.
+                onClicked: app.pickSnooze(pageStack.previousPage(page), [page.messageId])
+            }
+            MenuItem {
                 text: qsTr("Move to…")
                 onClicked: {
                     var picker = pageStack.push(Qt.resolvedUrl("MoveToPage.qml"), {

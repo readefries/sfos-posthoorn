@@ -24,10 +24,12 @@ class UnifiedMessageListModel : public QMailMessageListModel
     Q_PROPERTY(QVariantList folderIds READ folderIds WRITE setFolderIds NOTIFY folderIdsChanged)
     // Only the unread messages of folderIds, as the cover shows them.
     Q_PROPERTY(bool unreadOnly READ unreadOnly WRITE setUnreadOnly NOTIFY unreadOnlyChanged)
+    // Messages folderIds leaves out: snoozed ones.
+    Q_PROPERTY(QVariantList hiddenIds READ hiddenIds WRITE setHiddenIds NOTIFY hiddenIdsChanged)
     // Searches instead of showing folderIds when not empty: all mail matching everything set of
     // "text" (in the subject, sender and recipients), "body" (true to look for the text in the
-    // mail's text too), "unread", "starred", "attachments" (all true or left out) and "accountId"
-    // (0 or left out for all). Without text or a flag nothing matches. Trash and Junk are left
+    // mail's text too), "unread", "starred", "attachments" (all true or left out), "ids" (only
+    // these messages) and "accountId" (0 or left out for all). Without text or a flag nothing matches. Trash and Junk are left
     // out. Only mail on the phone is found, and in the text only of mail whose text is downloaded.
     Q_PROPERTY(QVariantMap search READ search WRITE setSearch NOTIFY searchChanged)
     // Looking in the text of mails, which takes a while.
@@ -68,6 +70,8 @@ public:
     void setFolderIds(const QVariantList &ids);
     bool unreadOnly() const { return m_unreadOnly; }
     void setUnreadOnly(bool unreadOnly);
+    QVariantList hiddenIds() const { return m_hiddenIds; }
+    void setHiddenIds(const QVariantList &ids);
     QVariantMap search() const { return m_search; }
     void setSearch(const QVariantMap &search);
     bool searchingBodies() const { return !m_bodySearch.isNull(); }
@@ -95,6 +99,7 @@ public:
 signals:
     void folderIdsChanged();
     void unreadOnlyChanged();
+    void hiddenIdsChanged();
     void searchChanged();
     void searchingBodiesChanged();
     void serverSearchChanged();
@@ -115,6 +120,7 @@ private:
 
     QVariantList m_folderIds;
     bool m_unreadOnly = false;
+    QVariantList m_hiddenIds;
     QVariantMap m_search;
     // Found in the mail's text or on the server, besides what matches the search's key.
     QMailMessageIdList m_matches;

@@ -80,25 +80,70 @@ ApplicationWindow {
         UnifiedMessageListModel { }
     }
 
-    // The folder id of an account's virtual Starred folder: its starred mail, wherever it is. Used
-    // like a real folder's id in the favourites and the saved state.
+    // Folder ids of an account's virtual folders, used like a real folder's id in the favourites
+    // and the saved state. Starred: its starred mail, wherever it is. Snoozed: what's hidden until
+    // later, see Snoozes.
     readonly property int starredFolderId: -1
+    readonly property int snoozedFolderId: -2
 
-    // An account's starred mail.
-    function openStarred(accountId, operation) {
+    function isVirtualFolder(folderId) {
+        return folderId === starredFolderId || folderId === snoozedFolderId
+    }
+
+    function virtualFolderName(folderId) {
+        return folderId === snoozedFolderId ? qsTr("Snoozed") : qsTr("Starred")
+    }
+
+    // What a UnifiedMessageListModel searches for to show a virtual folder.
+    function virtualFolderSearch(folderId, accountId) {
+        if (folderId === snoozedFolderId)
+            return { "ids": Snoozes.messageIds, "accountId": accountId }
+        return { "starred": true, "accountId": accountId }
+    }
+
+    function openVirtualFolder(accountId, folderId, operation) {
         pageStack.push(Qt.resolvedUrl("pages/MessagesPage.qml"), {
                            accountId: accountId,
-                           folderId: starredFolderId
+                           folderId: folderId
                        }, operation)
     }
 
-    function markStarredRead(accountId) {
-        var model = folderMessages.createObject(app, { search: { starred: true, accountId: accountId } })
+    function markVirtualFolderRead(accountId, folderId) {
+        var model = folderMessages.createObject(app, { search: virtualFolderSearch(folderId, accountId) })
         var ids = model.unreadMessageIds()
         for (var i = 0; i < ids.length; ++i)
             agent.markMessageAsRead(ids[i])
         model.destroy()
     }
+
+    // Hides the messages until the chosen time, read meanwhile. pickSnooze() lets the user choose
+    // it, from the page origin, which it comes back to; done is called once they're snoozed.
+    function pickSnooze(origin, messageIds, done) {
+        var picker = pageStack.push(Qt.resolvedUrl("pages/SnoozePage.qml"), { count: messageIds.length })
+        picker.chosen.connect(function(until) {
+            for (var i = 0; i < messageIds.length; ++i) {
+                agent.markMessageAsRead(messageIds[i])
+                Snoozes.snooze(messageIds[i], until)
+            }
+            if (done)
+                done()
+            app.whenIdle(function() { pageStack.pop(origin) })
+        })
+    }
+
+    // Brings back what was snoozed until now, unread.
+    function wakeSnoozed() {
+        var ids = Snoozes.takeDue()
+        for (var i = 0; i < ids.length; ++i)
+            agent.markMessageAsUnread(ids[i])
+    }
+
+    Connections {
+        target: Snoozes
+        onDue: app.wakeSnoozed()
+    }
+
+    Component.onCompleted: wakeSnoozed()
 
     // Marks all mail in the folders as read, not just what a list has loaded.
     function markFoldersRead(folderIds) {

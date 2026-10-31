@@ -93,7 +93,11 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - ✓ A New mail button on the cover, next to Sync.
 - ✓ The cover shows what's waiting: the unified inbox's unread count and the newest unread
   senders and subjects, as many as fit above its buttons.
-- Snooze: a mail leaves the inbox until a chosen time, then comes back unread.
+- ✓ Snooze, from the long-press menu and the reader: later today, this evening, tomorrow morning,
+  this weekend, next week, or a date and time. Only on the phone (`Snoozes`, in state.ini): the
+  mail is marked read and left out of the lists, then marked unread at its time, or when the app
+  next starts. A virtual Snoozed folder shows what's waiting while there is any.
+- Snoozing a selection, from the panel.
 - Conversations: replies grouped with the mail they answer, as FairEmail and Gmail do.
 - A colour per account in the unified inbox, for when there's more than one.
 - ✓ In place of Jolla's Mail, with the opt-in `posthoorn-default-mail` package: Posthoorn answers

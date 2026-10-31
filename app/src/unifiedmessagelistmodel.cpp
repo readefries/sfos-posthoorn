@@ -69,6 +69,28 @@ void UnifiedMessageListModel::setUnreadOnly(bool unreadOnly)
     emit unreadOnlyChanged();
 }
 
+void UnifiedMessageListModel::setHiddenIds(const QVariantList &ids)
+{
+    if (ids == m_hiddenIds)
+        return;
+    m_hiddenIds = ids;
+    if (m_search.isEmpty())
+        updateKey();
+    emit hiddenIdsChanged();
+}
+
+namespace {
+
+QMailMessageIdList messageIdList(const QVariantList &ids)
+{
+    QMailMessageIdList list;
+    for (const QVariant &id : ids)
+        list.append(QMailMessageId(id.toULongLong()));
+    return list;
+}
+
+} // namespace
+
 void UnifiedMessageListModel::setSearch(const QVariantMap &search)
 {
     if (search == m_search)
@@ -120,6 +142,8 @@ void UnifiedMessageListModel::updateKey()
                 & ~QMailSearchAction::temporaryKey();
         if (m_unreadOnly)
             key &= QMailMessageKey::status(QMailMessage::Read, QMailDataComparator::Excludes);
+        if (!m_hiddenIds.isEmpty())
+            key &= QMailMessageKey::id(messageIdList(m_hiddenIds), QMailDataComparator::Excludes);
         setKey(folders.isEmpty() ? QMailMessageKey::nonMatchingKey() : key);
         return;
     }
@@ -140,6 +164,11 @@ void UnifiedMessageListModel::updateKey()
     filter &= flags;
     if (m_search.value(QStringLiteral("attachments")).toBool()) {
         filter &= QMailMessageKey::status(QMailMessage::HasAttachments, QMailDataComparator::Includes);
+        anything = true;
+    }
+    if (m_search.contains(QStringLiteral("ids"))) {
+        const QVariantList ids = m_search.value(QStringLiteral("ids")).toList();
+        filter &= ids.isEmpty() ? QMailMessageKey::nonMatchingKey() : QMailMessageKey::id(messageIdList(ids));
         anything = true;
     }
     if (!anything) {
