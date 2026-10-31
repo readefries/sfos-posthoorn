@@ -115,7 +115,8 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   formatted again (`core/maildraft.cpp` splits the text, `FlowedText::decode` joins flowed lines).
   Unchanged drafts aren't saved again; saving replaces the old version, sending or "Delete draft"
   removes it.
-- A "Binding loop detected for property canNavigateForward" warning from the compose Dialog.
+- ✓ The "Binding loop detected for property canNavigateForward" warning from the compose Dialog
+  is gone since the recipient fields changed; not seen again for a new mail or a reply.
 - ✓ "Cannot pop while operation is in progress": going back now waits for page transitions.
 
 ### 5. PGP
