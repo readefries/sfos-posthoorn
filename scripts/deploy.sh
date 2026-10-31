@@ -33,9 +33,17 @@ rpm=$(ls "$build"/RPMS/posthoorn-[0-9]*.rpm)
 default_mail=$(ls "$build"/RPMS/posthoorn-default-mail-*.rpm)
 scp -q "$rpm" "$default_mail" "$host:"
 echo
-echo "Copied $(basename "$rpm") and $(basename "$default_mail") to $host. On the phone:"
+echo "Copied $(basename "$rpm") and $(basename "$default_mail") to $host."
 # Stopping the app afterwards, as a running one keeps the old version.
 stop="pkill -f '^/usr/bin/posthoorn'"
-echo "  devel-su pkcon install-local ./$(basename "$rpm"); $stop"
-echo "and, with Jolla's Mail uninstalled, to open mail notifications in Posthoorn:"
-echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail"); $stop"
+# With posthoorn-default-mail installed both have to be updated together: it requires the exact
+# same version of posthoorn.
+if ssh "$host" rpm -q posthoorn-default-mail >/dev/null 2>&1; then
+    echo "On the phone (posthoorn-default-mail is installed, so both):"
+    echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail"); $stop"
+else
+    echo "On the phone:"
+    echo "  devel-su pkcon install-local ./$(basename "$rpm"); $stop"
+    echo "and, with Jolla's Mail uninstalled, to open mail notifications in Posthoorn:"
+    echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail"); $stop"
+fi
