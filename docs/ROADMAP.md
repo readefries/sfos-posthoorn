@@ -87,6 +87,9 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   delete.
 - ✓ Start where the app was left: the last folder (or account) opens again after a restart.
 - With a single account, the account overview could be skipped altogether.
+- Checking for new mail on a schedule set in the app: how often, and when (e.g. more often during
+  working hours, not at night). QMF's own interval per account is set in Settings → Accounts and
+  is the same for the whole day.
 
 ### 4. Compose
 
