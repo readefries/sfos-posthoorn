@@ -24,6 +24,32 @@ builds the RPM and copies it to the phone (default host `sailfish`). Install it 
 Because the app uses the system's mail APIs it can't go into the Jolla Store (Harbour); it's meant
 for SailfishOS:Chum.
 
+`scripts/docker-build.sh [release] [arch]` builds in the community SDK image, as CI does.
+
+## Releasing
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `ci:`,
+...). After every green build on `main`, CI runs [semantic-release](https://semantic-release.gitbook.io/):
+it picks the next version from the commits since the last `vX.Y.Z` tag (`fix:` patch, `feat:` minor,
+`BREAKING CHANGE:` major), builds the RPMs for aarch64, armv7hl and i486 with that version, and
+creates the tag plus a GitHub release with the notes, the RPMs, `SHA256SUMS` and a build provenance
+attestation. It commits nothing; the version in the spec is a placeholder that release builds
+replace with the tag's.
+
+### Installing a release from GitHub
+
+Download `posthoorn-<version>-1.<arch>.rpm` for your device (`uname -m`: `aarch64` on recent
+devices), and `posthoorn-default-mail-<version>-1.<arch>.rpm` too if Posthoorn takes over from
+Jolla's Mail (see below). Check where they came from before installing them:
+
+```sh
+sha256sum -c --ignore-missing SHA256SUMS
+gh attestation verify posthoorn-<version>-1.aarch64.rpm -R readefries/sfos-posthoorn  # built here, by CI
+devel-su pkcon install-local ./posthoorn-<version>-1.aarch64.rpm
+```
+
+Packages installed this way don't update by themselves.
+
 ## Using it in place of Jolla's Mail
 
 New-mail notifications and `mailto:` links open Jolla's Mail. With the `posthoorn-default-mail`

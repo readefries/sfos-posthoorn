@@ -1,5 +1,7 @@
 Name:       posthoorn
 Summary:    Email client for Sailfish OS
+# Placeholder: release builds replace it with the version of the newest vX.Y.Z tag, which
+# semantic-release creates. Local builds keep 0.1.0.
 Version:    0.1.0
 Release:    1%{?dev_suffix}
 License:    AGPLv3+
