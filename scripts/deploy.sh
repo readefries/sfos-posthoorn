@@ -28,8 +28,12 @@ else
     distrobox enter sailfish-sdk -- sh -c "$sfdk_build"
 fi
 
-rpm=$(ls "$build"/RPMS/posthoorn-*.rpm)
-scp -q "$rpm" "$host:"
+# posthoorn, and posthoorn-default-mail for those who use it in place of Jolla's Mail.
+rpm=$(ls "$build"/RPMS/posthoorn-[0-9]*.rpm)
+default_mail=$(ls "$build"/RPMS/posthoorn-default-mail-*.rpm)
+scp -q "$rpm" "$default_mail" "$host:"
 echo
-echo "Copied $(basename "$rpm") to $host. On the phone:"
+echo "Copied $(basename "$rpm") and $(basename "$default_mail") to $host. On the phone:"
 echo "  devel-su pkcon install-local ./$(basename "$rpm")"
+echo "and, with Jolla's Mail uninstalled, to open mail notifications in Posthoorn:"
+echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail")"

@@ -7,6 +7,7 @@
 #include "appstate.h"
 #include "archivefolders.h"
 #include "links.h"
+#include "mailuiservice.h"
 #include "messagebody.h"
 #include "messageflags.h"
 #include "outgoingmessage.h"
@@ -97,6 +98,15 @@ int main(int argc, char *argv[])
                                         [](QQmlEngine *, QJSEngine *) -> QObject * {
                                             return new Addresses;
                                         });
+
+    // Before QML: a call that started the app is handled once the event loop runs, when QML is
+    // there to take it.
+    static MailUiService *mailUi = new MailUiService(app.data());
+    qmlRegisterSingletonType<MailUiService>("Posthoorn", 1, 0, "MailUi",
+                                            [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                                QQmlEngine::setObjectOwnership(mailUi, QQmlEngine::CppOwnership);
+                                                return mailUi;
+                                            });
 
     QScopedPointer<QQuickView> view(SailfishApp::createView());
     view->setSource(SailfishApp::pathToMainQml());

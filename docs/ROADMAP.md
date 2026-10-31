@@ -87,9 +87,13 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   delete.
 - ✓ Start where the app was left: the last folder (or account) opens again after a restart.
 - With a single account, the account overview could be skipped altogether.
-- Checking for new mail on a schedule set in the app: how often, and when (e.g. more often during
-  working hours, not at night). QMF's own interval per account is set in Settings → Accounts and
-  is the same for the whole day.
+- ✓ In place of Jolla's Mail, with the opt-in `posthoorn-default-mail` package: Posthoorn answers
+  com.jolla.email.ui, so the system's new-mail notifications (from qmf-notifications-plugin) and
+  mailto: links open it. Its sailjail profile allows the name; it conflicts with jolla-email.
+  Removing jolla-email switches off the mail accounts, which then need switching on again.
+- Checking for new mail on a schedule: Settings → Accounts already does this per account, peak
+  hours included (Buteo's sync schedule, run by msyncd even with the app closed). Posthoorn's
+  Settings could show each account's schedule and open that page.
 
 ### 4. Compose
 

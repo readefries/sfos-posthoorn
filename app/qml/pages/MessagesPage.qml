@@ -62,6 +62,11 @@ Page {
             AppState.save("unified")
         else
             AppState.save("messages", accountId, folderId)
+        // So the new-mail notifications for it can go.
+        if (unified)
+            MailUi.inboxShown(0)
+        else if (folderId === app.emailAgent.inboxFolderId(accountId))
+            MailUi.inboxShown(accountId)
     }
 
     RemorsePopup {

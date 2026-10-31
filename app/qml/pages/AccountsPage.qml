@@ -18,6 +18,14 @@ Page {
 
     // Opens the folder or account the app was left in.
     function restore() {
+        app.started = true
+        // Started from a notification or a mail link: that instead.
+        if (app.pendingRequest) {
+            var request = app.pendingRequest
+            app.pendingRequest = null
+            request()
+            return
+        }
         var accountId = AppState.accountId
         // "messages" without an account was the plugin's combined inbox, before the unified one.
         if (AppState.page === "unified" || (AppState.page === "messages" && accountId === 0)) {

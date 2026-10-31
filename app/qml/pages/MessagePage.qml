@@ -17,6 +17,9 @@ Page {
     // The HTML part had nothing to show, so the text part is shown instead. Only once: "Use HTML
     // part" still shows the empty HTML.
     property bool htmlWasEmpty: false
+    // Opened from a notification's reply action: 1 to reply, 2 to reply to all, once the text is
+    // there to quote.
+    property int replyWhenLoaded: 0
     // Read once and then kept here: EmailMessage doesn't tell.
     property bool starred: false
     onLoadedChanged: {
@@ -61,6 +64,12 @@ Page {
                 console.log("Message", page.messageId, "has nothing to show in its HTML, using its text part")
                 page.htmlWasEmpty = true
                 page.preferTextPart = true
+                return
+            }
+            if (page.replyWhenLoaded > 0 && page.source.length > 0) {
+                var all = page.replyWhenLoaded === 2
+                page.replyWhenLoaded = 0
+                app.whenIdle(function() { page.reply(all) })
             }
         }
     }

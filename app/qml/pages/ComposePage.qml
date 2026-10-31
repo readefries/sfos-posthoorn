@@ -35,6 +35,8 @@ Dialog {
     property string forwarded
     // A saved draft to continue: everything above comes from it.
     property int draftId
+    // Text to start with, from a mailto: link.
+    property string bodyText
 
     property bool includeQuote: true
     property bool keepEarlierQuotes: false
@@ -540,6 +542,7 @@ Dialog {
             TextArea {
                 id: body
                 width: parent.width
+                text: dialog.bodyText
                 placeholderText: qsTr("Message")
                 labelVisible: false
             }

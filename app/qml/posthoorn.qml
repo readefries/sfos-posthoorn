@@ -89,32 +89,93 @@ ApplicationWindow {
         model.destroy()
     }
 
-    // Goes back from page to target, or to the page below it. Only while page is on top: it may
-    // have been left already, e.g. during a remorse timer. And not during a page transition, which
-    // makes popping fail ("Cannot pop while operation is in progress"): then right after it.
-    function popFrom(page, target) {
-        if (pageStack.currentPage !== page)
-            return
-        if (pageStack.busy) {
-            pendingPop = { page: page, target: target }
-            return
-        }
-        if (target)
-            pageStack.pop(target)
+    // Runs fn now, or right after a page transition: pushing or popping during one fails ("Cannot
+    // pop while operation is in progress").
+    function whenIdle(fn) {
+        if (pageStack.busy)
+            idleQueue.push(fn)
         else
-            pageStack.pop()
+            fn()
     }
 
-    property var pendingPop: null
+    property var idleQueue: []
 
     Connections {
         target: pageStack
         onBusyChanged: {
-            if (pageStack.busy || !app.pendingPop)
+            while (!pageStack.busy && app.idleQueue.length > 0)
+                app.idleQueue.shift()()
+        }
+    }
+
+    // Goes back from page to target, or to the page below it. Only while page is on top: it may
+    // have been left already, e.g. during a remorse timer.
+    function popFrom(page, target) {
+        whenIdle(function() {
+            if (pageStack.currentPage !== page)
                 return
-            var pending = app.pendingPop
-            app.pendingPop = null
-            app.popFrom(pending.page, pending.target)
+            if (target)
+                pageStack.pop(target)
+            else
+                pageStack.pop()
+        })
+    }
+
+    // What a notification or mail link asks for (MailUi), once the app has opened where it was
+    // left; before that, the first page runs it instead of restoring.
+    property bool started: false
+    property var pendingRequest: null
+
+    function request(fn) {
+        if (started)
+            whenIdle(fn)
+        else
+            pendingRequest = fn
+    }
+
+    Connections {
+        target: MailUi
+        onActivateRequested: app.activate()
+        onInboxRequested: {
+            app.activate()
+            app.request(function() {
+                if (accountId > 0) {
+                    var inbox = agent.inboxFolderId(accountId)
+                    if (inbox > 0)
+                        pageStack.push(Qt.resolvedUrl("pages/MessagesPage.qml"), {
+                                           accountId: accountId,
+                                           folderId: inbox,
+                                           accessor: agent.accessorFromFolderId(inbox)
+                                       })
+                } else {
+                    pageStack.push(Qt.resolvedUrl("pages/MessagesPage.qml"), {
+                                       unified: true,
+                                       title: qsTr("Unified inbox")
+                                   })
+                }
+            })
+        }
+        onMessageRequested: {
+            app.activate()
+            app.request(function() {
+                pageStack.push(Qt.resolvedUrl("pages/MessagePage.qml"), {
+                                   messageId: messageId,
+                                   replyWhenLoaded: reply
+                               })
+            })
+        }
+        onComposeRequested: {
+            app.activate()
+            app.request(function() {
+                pageStack.push(Qt.resolvedUrl("pages/ComposePage.qml"), {
+                                   from: accountModel.numberOfAccounts > 0 ? accountModel.emailAddress(0) : "",
+                                   subject: subject,
+                                   to: to,
+                                   cc: cc,
+                                   bcc: bcc,
+                                   bodyText: body
+                               })
+            })
         }
     }
 

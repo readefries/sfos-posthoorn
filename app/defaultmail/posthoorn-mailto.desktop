@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Posthoorn
+NoDisplay=true
+Icon=posthoorn
+MimeType=x-scheme-handler/mailto;
+X-Maemo-Service=com.jolla.email.ui
+X-Maemo-Method=com.jolla.email.ui.mailto
+X-Maemo-Object-Path=/com/jolla/email/ui
