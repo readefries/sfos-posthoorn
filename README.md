@@ -24,11 +24,19 @@ and sending are done by the messageserver. It can be used next to Jolla's Mail, 
 **Sorting**
 
 - A unified inbox of any folders of any accounts (the inboxes of all accounts by default),
-  favourite folders on the start page, and switching folders from a folder's title. With one
-  account its folders are on the start page. The app opens where it was left.
-- Per mail (long-press) or for a selection: archive, mark read or unread, star, move, delete.
-  Archiving moves mail to its account's archive folder, found by name or chosen in Settings.
-  Stars are the server's "flagged". "Mark all as read" for a folder or the unified inbox.
+  favourite folders on the start page, and switching folders from a folder's title. The app opens
+  where it was left.
+- Conversations: a mail and its replies as one row, opening into all of them, from any folder,
+  Sent included. Can be switched off in Settings.
+- Per mail or conversation (long-press) or for a selection: archive, snooze, mark read or unread,
+  star, move, delete. Archiving moves mail to its account's archive folder, found by name or
+  chosen in Settings. Stars are the server's "flagged". "Mark all as read" for a folder or the
+  unified inbox.
+- Snoozing hides mail until later today, this evening, tomorrow morning, the weekend, next week
+  or a chosen time, then brings it back unread. It's kept on the phone; the mail stays where it
+  is on the server.
+- Virtual folders per account, which can be favourites too: Starred, all starred mail wherever
+  it is, and Snoozed, what's waiting to come back.
 - Search through all mail on the phone, in the subject, sender and recipients and optionally the
   text, with filters for unread, starred and attachments, and on the servers too.
 
@@ -38,14 +46,16 @@ and sending are done by the messageserver. It can be used next to Jolla's Mail, 
   recipient suggestions from Contacts. Quotes above or below the reply, or none; the account's
   signature; attachments, also the original's when forwarding.
 - Drafts are saved when leaving and can be continued. Mail goes out as `format=flowed` plain text.
+- Sending can be undone for a few seconds; the mail then opens in the composer again.
 
 **On the phone**
 
-- The cover has New mail and Sync buttons.
+- The cover shows how much is unread in the unified inbox and the newest unread mails, with New
+  mail and Sync buttons.
 - With `posthoorn-default-mail`, new-mail notifications and `mailto:` links open Posthoorn.
 
-Planned, among others: PGP, snooze, conversations and undo send. See
-[docs/ROADMAP.md](docs/ROADMAP.md) for those and the decisions made so far.
+Planned, among others: PGP and moving mail between accounts. See [docs/ROADMAP.md](docs/ROADMAP.md)
+for those and the decisions made so far.
 
 ## Installing
 
