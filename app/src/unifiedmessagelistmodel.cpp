@@ -14,6 +14,10 @@ UnifiedMessageListModel::UnifiedMessageListModel(QObject *parent)
     connect(this, &QAbstractItemModel::rowsInserted, this, &UnifiedMessageListModel::countChanged);
     connect(this, &QAbstractItemModel::rowsRemoved, this, &UnifiedMessageListModel::countChanged);
     connect(this, &QAbstractItemModel::modelReset, this, &UnifiedMessageListModel::countChanged);
+    connect(this, &QAbstractItemModel::rowsInserted, this, &UnifiedMessageListModel::unreadCountChanged);
+    connect(this, &QAbstractItemModel::rowsRemoved, this, &UnifiedMessageListModel::unreadCountChanged);
+    connect(this, &QAbstractItemModel::modelReset, this, &UnifiedMessageListModel::unreadCountChanged);
+    connect(this, &QAbstractItemModel::dataChanged, this, &UnifiedMessageListModel::unreadCountChanged);
     connect(QMailStore::instance(), &QMailStore::messagesRemoved,
             this, &UnifiedMessageListModel::onMessagesRemoved);
 }

@@ -5,7 +5,7 @@ import Nemo.Email 0.1
 import Posthoorn 1.0
 
 // Where the app starts: the unified inbox, the favourites and the accounts. With a single account
-// its folders are here instead, without a page of their own.
+// that's its name above, and a row leading to its folders.
 Page {
     id: page
 
@@ -14,19 +14,6 @@ Page {
     readonly property int singleAccountId: app.accounts.numberOfAccounts === 1 ? app.accounts.accountId(0) : 0
     readonly property bool single: singleAccountId > 0
 
-    FolderListModel {
-        id: singleFolders
-        accountKey: page.singleAccountId
-    }
-
-    function openFolder(index, folderId, operation) {
-        // The name comes from the folder itself, see MessagesPage.
-        pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
-                           accountId: page.singleAccountId,
-                           folderId: folderId,
-                           accessor: singleFolders.folderAccessor(index)
-                       }, operation)
-    }
 
     function openUnified(operation) {
         pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
@@ -50,11 +37,7 @@ Page {
         if (AppState.page === "unified" || (AppState.page === "messages" && accountId === 0)) {
             if (app.accounts.numberOfAccounts > 0)
                 openUnified(PageStackAction.Immediate)
-        } else if (single && AppState.page === "messages" && accountId === singleAccountId) {
-            var index = singleFolders.indexFromFolderId(AppState.folderId)
-            if (index >= 0)
-                openFolder(index, AppState.folderId, PageStackAction.Immediate)
-        } else if (!single && (AppState.page === "folders" || AppState.page === "messages")
+        } else if ((AppState.page === "folders" || AppState.page === "messages")
                    && app.accounts.indexFromAccountId(accountId) >= 0) {
             pageStack.push(Qt.resolvedUrl("FoldersPage.qml"), {
                                accountId: accountId,
@@ -86,8 +69,8 @@ Page {
     SilicaListView {
         id: list
         anchors.fill: parent
-        model: page.single ? singleFolders : app.accounts
-        delegate: page.single ? folderDelegate : accountDelegate
+        model: app.accounts
+        delegate: accountDelegate
 
         header: Column {
             width: list.width
@@ -150,23 +133,37 @@ Page {
 
                     readonly property int accountId: parseInt(modelData.split("/")[0])
                     readonly property int folderId: parseInt(modelData.split("/")[1])
+                    // The account's virtual Starred folder rather than a real one.
+                    readonly property bool starred: folderId === app.starredFolderId
+                    readonly property int unreadCount: starred ? starredMail.unreadCount : folder.folderUnreadCount
 
                     // Not for a folder that's gone, or of an account that's gone.
-                    visible: app.accounts.indexFromAccountId(accountId) >= 0 && folder.displayName.length > 0
+                    visible: app.accounts.indexFromAccountId(accountId) >= 0
+                             && (starred || folder.displayName.length > 0)
                     width: parent.width
                     contentHeight: visible ? Theme.itemSizeMedium : 0
 
-                    onClicked: pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
-                                                  accountId: accountId,
-                                                  folderId: folderId,
-                                                  accessor: folder.folderAccessor
-                                              })
+                    onClicked: {
+                        if (starred)
+                            app.openStarred(accountId, PageStackAction.Animated)
+                        else
+                            pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
+                                               accountId: accountId,
+                                               folderId: folderId,
+                                               accessor: folder.folderAccessor
+                                           })
+                    }
 
                     menu: ContextMenu {
                         MenuItem {
-                            visible: folder.folderUnreadCount > 0
+                            visible: favourite.unreadCount > 0
                             text: qsTr("Mark all as read")
-                            onClicked: app.markFoldersRead([favourite.folderId])
+                            onClicked: {
+                                if (favourite.starred)
+                                    app.markStarredRead(favourite.accountId)
+                                else
+                                    app.markFoldersRead([favourite.folderId])
+                            }
                         }
                         MenuItem {
                             text: qsTr("Remove from favourites")
@@ -176,7 +173,12 @@ Page {
 
                     EmailFolder {
                         id: folder
-                        folderAccessor: app.emailAgent.accessorFromFolderId(favourite.folderId)
+                        folderAccessor: favourite.starred ? null : app.emailAgent.accessorFromFolderId(favourite.folderId)
+                    }
+
+                    UnifiedMessageListModel {
+                        id: starredMail
+                        search: favourite.starred ? { "starred": true, "accountId": favourite.accountId } : ({})
                     }
 
                     Column {
@@ -189,7 +191,7 @@ Page {
                         }
                         Label {
                             width: parent.width
-                            text: folder.displayName
+                            text: favourite.starred ? qsTr("Starred") : folder.displayName
                             color: favourite.highlighted ? Theme.highlightColor : Theme.primaryColor
                             truncationMode: TruncationMode.Fade
                         }
@@ -209,15 +211,15 @@ Page {
                             rightMargin: Theme.horizontalPageMargin
                             verticalCenter: parent.verticalCenter
                         }
-                        text: folder.folderUnreadCount > 0 ? folder.folderUnreadCount : ""
+                        text: favourite.unreadCount > 0 ? favourite.unreadCount : ""
                         color: Theme.highlightColor
                     }
                 }
             }
 
             SectionHeader {
-                visible: page.single || favourites.count > 0
-                text: page.single ? qsTr("Folders") : qsTr("Accounts")
+                visible: !page.single && favourites.count > 0
+                text: qsTr("Accounts")
             }
         }
 
@@ -230,11 +232,6 @@ Page {
             MenuItem {
                 text: qsTr("Search")
                 onClicked: app.search()
-            }
-            MenuItem {
-                visible: page.single
-                text: qsTr("Refresh folder list")
-                onClicked: app.emailAgent.retrieveFolderList(page.singleAccountId)
             }
             MenuItem {
                 text: qsTr("Sync all folders")
@@ -253,31 +250,19 @@ Page {
 
         ViewPlaceholder {
             enabled: list.count === 0
-            text: page.single ? qsTr("No folders yet") : qsTr("No email accounts")
-            hintText: page.single ? qsTr("Pull down to refresh the folder list")
-                                  : qsTr("Add one in Settings → Accounts")
+            text: qsTr("No email accounts")
+            hintText: qsTr("Add one in Settings → Accounts")
         }
 
         VerticalScrollDecorator { }
     }
 
     Component {
-        id: folderDelegate
-        FolderItem {
-            accountId: page.singleAccountId
-            folderId: model.folderId
-            name: model.folderName
-            nestingLevel: model.folderNestingLevel
-            unreadCount: model.folderUnreadCount
-            canHaveMessages: model.canHaveMessages
-            onClicked: page.openFolder(index, model.folderId, PageStackAction.Animated)
-        }
-    }
-
-    Component {
         id: accountDelegate
         ListItem {
             contentHeight: Theme.itemSizeMedium
+            // With a single account the title has its name already.
+            readonly property bool foldersRow: page.single
 
             onClicked: pageStack.push(Qt.resolvedUrl("FoldersPage.qml"),
                                       { accountId: model.mailAccountId, title: model.displayName })
@@ -292,7 +277,7 @@ Page {
                 }
                 Label {
                     width: parent.width
-                    text: model.displayName
+                    text: foldersRow ? qsTr("All folders") : model.displayName
                     truncationMode: TruncationMode.Fade
                 }
                 Label {

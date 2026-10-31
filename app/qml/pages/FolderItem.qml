@@ -30,7 +30,12 @@ ListItem {
         MenuItem {
             visible: item.unreadCount > 0
             text: qsTr("Mark all as read")
-            onClicked: app.markFoldersRead([item.folderId])
+            onClicked: {
+                if (item.folderId === app.starredFolderId)
+                    app.markStarredRead(item.accountId)
+                else
+                    app.markFoldersRead([item.folderId])
+            }
         }
     }
 

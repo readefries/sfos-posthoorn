@@ -24,7 +24,7 @@ Page {
     onStatusChanged: {
         if (status !== PageStatus.Active)
             return
-        if (restoreFolderId > 0) {
+        if (restoreFolderId !== 0) {
             restoreLater.start()
             return
         }
@@ -39,6 +39,10 @@ Page {
         onTriggered: {
             var folderId = page.restoreFolderId
             page.restoreFolderId = 0
+            if (folderId === app.starredFolderId) {
+                app.openStarred(page.accountId, PageStackAction.Immediate)
+                return
+            }
             var index = folders.indexFromFolderId(folderId)
             if (index >= 0)
                 // The name comes from the folder itself, see MessagesPage.
@@ -58,10 +62,18 @@ Page {
         anchors.fill: parent
         model: folders
 
-        header: PageHeader {
-            // See AccountsPage.
-            page: list.parent
-            title: page.title
+        header: Column {
+            width: list.width
+
+            PageHeader {
+                // See AccountsPage.
+                page: list.parent
+                title: page.title
+            }
+
+            StarredFolderItem {
+                accountId: page.accountId
+            }
         }
 
         PullDownMenu {

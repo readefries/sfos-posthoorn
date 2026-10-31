@@ -11,14 +11,17 @@ Page {
     // The folder's own name when not set.
     property string title
     readonly property string shownTitle: searching ? qsTr("Search")
+                                                   : starred ? qsTr("Starred")
                                                    : title.length > 0 ? title : folder.displayName
     // The unified inbox: the folders in app.unifiedFolders, of any account.
     property bool unified: false
     // Searching all folders of all accounts, or of searchAccountId.
     property bool searching: false
-    // A folder: both 0 for the unified inbox and searching.
+    // A folder: both 0 for the unified inbox and searching. folderId is app.starredFolderId for
+    // the account's starred mail.
     property int accountId
     property int folderId
+    readonly property bool starred: !unified && !searching && folderId === app.starredFolderId
     property var accessor
 
     // What is searched for; the header's fields set these.
@@ -39,8 +42,8 @@ Page {
 
     UnifiedMessageListModel {
         id: messageModel
-        folderIds: page.searching ? [] : page.unified ? app.unifiedFolderIds : [page.folderId]
-        search: !page.searching ? ({}) : {
+        folderIds: page.searching || page.starred ? [] : page.unified ? app.unifiedFolderIds : [page.folderId]
+        search: page.starred ? { "starred": true, "accountId": page.accountId } : !page.searching ? ({}) : {
             "text": page.searchText,
             "body": page.searchBody,
             "unread": page.searchUnread,
@@ -52,7 +55,7 @@ Page {
 
     EmailFolder {
         id: folder
-        folderAccessor: page.unified || page.searching ? null : page.accessor
+        folderAccessor: page.unified || page.searching || page.starred ? null : page.accessor
     }
 
     onStatusChanged: {
@@ -79,6 +82,11 @@ Page {
     }
 
     function sync() {
+        // Starred mail can be in any folder.
+        if (starred) {
+            app.emailAgent.synchronize(accountId)
+            return
+        }
         var folders = shownFolders()
         for (var i = 0; i < folders.length; ++i)
             app.emailAgent.retrieveMessageList(folders[i].accountId, folders[i].folderId)
@@ -129,7 +137,7 @@ Page {
 
     // Whether any of the selection can be archived; the rest stays where it is.
     readonly property bool canArchiveSelected: {
-        if (!unified && !searching)
+        if (!unified && !searching && !starred)
             return app.canArchive(accountId, folderId)
         messages.selectedMessageCount
         var ids = messages.selectedMessageIds()
@@ -355,7 +363,7 @@ Page {
         }
 
         PushUpMenu {
-            visible: !page.selecting && !page.searching && list.count > 0
+            visible: !page.selecting && !page.searching && !page.starred && list.count > 0
             busy: app.emailAgent.synchronizing
             MenuItem {
                 text: qsTr("Load older messages")
@@ -367,11 +375,13 @@ Page {
             enabled: list.count === 0 && !(page.searching && (messages.searchingBodies || messages.searchingServer))
             // Below the search fields.
             verticalOffset: page.searching && list.headerItem ? list.headerItem.height / 2 : 0
-            text: page.searching ? (page.searchText.trim().length > 0 || page.searchUnread || page.searchStarred
+            text: page.starred ? qsTr("No starred mail")
+                  : page.searching ? (page.searchText.trim().length > 0 || page.searchUnread || page.searchStarred
                                     || page.searchAttachments ? qsTr("Nothing found") : "")
                                  : page.unified && app.unifiedFolders.length === 0 ? qsTr("No folders chosen")
                                                                                    : qsTr("No messages")
-            hintText: page.searching ? (text.length > 0 ? (messages.serverSearched ? qsTr("Not on the server either")
+            hintText: page.starred ? qsTr("Star mail from its long-press menu")
+                      : page.searching ? (text.length > 0 ? (messages.serverSearched ? qsTr("Not on the server either")
                                                                                    : qsTr("Only mail on the phone was searched"))
                                                         : qsTr("Type something or pick a filter"))
                                      : page.unified && app.unifiedFolders.length === 0
@@ -501,7 +511,7 @@ Page {
                         anchors.right: parent.right
                         // In the unified inbox and search results, where a message is when that
                         // isn't an inbox.
-                        text: ((page.unified || page.searching) && model.folderId !== app.emailAgent.inboxFolderId(model.accountId)
+                        text: ((page.unified || page.searching || page.starred) && model.folderId !== app.emailAgent.inboxFolderId(model.accountId)
                                ? model.folderName + " · " : "")
                               + Format.formatDate(model.qDateTime, Formatter.TimeValue)
                         font.pixelSize: Theme.fontSizeExtraSmall

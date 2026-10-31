@@ -55,4 +55,5 @@ DISTFILES += \
     qml/pages/OpenLinkDialog.qml \
     qml/pages/ReceivedAttachmentItem.qml \
     qml/pages/SettingsPage.qml \
+    qml/pages/StarredFolderItem.qml \
     qml/pages/UnifiedFoldersPage.qml

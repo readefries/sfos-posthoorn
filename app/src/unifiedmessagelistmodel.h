@@ -34,6 +34,8 @@ class UnifiedMessageListModel : public QMailMessageListModel
     Q_PROPERTY(bool searchingServer READ searchingServer NOTIFY serverSearchChanged)
     Q_PROPERTY(bool serverSearched READ serverSearched NOTIFY serverSearchChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
+    // For the virtual Starred folder's count. Notifies on any change of the messages.
+    Q_PROPERTY(int unreadCount READ unreadCount NOTIFY unreadCountChanged)
     Q_PROPERTY(int selectedMessageCount READ selectedMessageCount NOTIFY selectedMessageCountChanged)
 
 public:
@@ -73,6 +75,7 @@ public:
     // per account.
     Q_INVOKABLE void searchServer();
     int count() const { return rowCount(); }
+    int unreadCount() const { return unreadMessageIds().size(); }
     int selectedMessageCount() const { return m_selected.size(); }
 
     Q_INVOKABLE void selectMessage(int index);
@@ -91,6 +94,7 @@ signals:
     void searchingBodiesChanged();
     void serverSearchChanged();
     void countChanged();
+    void unreadCountChanged();
     void selectedMessageCountChanged();
 
 protected:

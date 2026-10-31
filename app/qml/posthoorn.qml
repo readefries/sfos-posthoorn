@@ -80,6 +80,26 @@ ApplicationWindow {
         UnifiedMessageListModel { }
     }
 
+    // The folder id of an account's virtual Starred folder: its starred mail, wherever it is. Used
+    // like a real folder's id in the favourites and the saved state.
+    readonly property int starredFolderId: -1
+
+    // An account's starred mail.
+    function openStarred(accountId, operation) {
+        pageStack.push(Qt.resolvedUrl("pages/MessagesPage.qml"), {
+                           accountId: accountId,
+                           folderId: starredFolderId
+                       }, operation)
+    }
+
+    function markStarredRead(accountId) {
+        var model = folderMessages.createObject(app, { search: { starred: true, accountId: accountId } })
+        var ids = model.unreadMessageIds()
+        for (var i = 0; i < ids.length; ++i)
+            agent.markMessageAsRead(ids[i])
+        model.destroy()
+    }
+
     // Marks all mail in the folders as read, not just what a list has loaded.
     function markFoldersRead(folderIds) {
         var model = folderMessages.createObject(app, { folderIds: folderIds })

@@ -86,8 +86,10 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - Moving mail between accounts: QMF only moves within one, so copy to the other account, then
   delete.
 - ✓ Start where the app was left: the last folder (or account) opens again after a restart.
-- ✓ With a single account, its folders are on the start page, below the unified inbox and the
-  favourites, instead of on a page of their own.
+- ✓ With a single account, the start page has its name, and one "All folders" row instead of the
+  account. (Its folders on the start page itself felt like too much.)
+- ✓ A virtual Starred folder per account, above its folders: its starred mail, wherever it is.
+  It can be a favourite like any folder.
 - ✓ A New mail button on the cover, next to Sync.
 - The cover showing what's waiting: the unified inbox's unread count and the newest unread
   senders and subjects.
