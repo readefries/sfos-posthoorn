@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QPointer>
 #include <QSet>
+#include <QTimer>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -24,12 +25,16 @@ class UnifiedMessageListModel : public QMailMessageListModel
     Q_PROPERTY(QVariantList folderIds READ folderIds WRITE setFolderIds NOTIFY folderIdsChanged)
     // Only the unread messages of folderIds, as the cover shows them.
     Q_PROPERTY(bool unreadOnly READ unreadOnly WRITE setUnreadOnly NOTIFY unreadOnlyChanged)
+    // One row per conversation in folderIds: its newest message, standing for all of its
+    // messages there (see messageIdsOf()), unread when any of them is.
+    Q_PROPERTY(bool threaded READ threaded WRITE setThreaded NOTIFY threadedChanged)
     // Messages folderIds leaves out: snoozed ones.
     Q_PROPERTY(QVariantList hiddenIds READ hiddenIds WRITE setHiddenIds NOTIFY hiddenIdsChanged)
     // Searches instead of showing folderIds when not empty: all mail matching everything set of
     // "text" (in the subject, sender and recipients), "body" (true to look for the text in the
     // mail's text too), "unread", "starred", "attachments" (all true or left out), "ids" (only
-    // these messages) and "accountId" (0 or left out for all). Without text or a flag nothing matches. Trash and Junk are left
+    // these messages), "thread" (a conversation's messages) and "accountId" (0 or left out for
+    // all). Without text or a flag nothing matches. Trash and Junk are left
     // out. Only mail on the phone is found, and in the text only of mail whose text is downloaded.
     Q_PROPERTY(QVariantMap search READ search WRITE setSearch NOTIFY searchChanged)
     // Looking in the text of mails, which takes a while.
@@ -56,6 +61,9 @@ public:
         FolderNameRole,
         HasAttachmentsRole,
         StarredRole,
+        ThreadIdRole,
+        // Messages in the row's conversation, in any folder.
+        ThreadCountRole,
         SelectedRole
     };
 
@@ -70,6 +78,8 @@ public:
     void setFolderIds(const QVariantList &ids);
     bool unreadOnly() const { return m_unreadOnly; }
     void setUnreadOnly(bool unreadOnly);
+    bool threaded() const { return m_threaded; }
+    void setThreaded(bool threaded);
     QVariantList hiddenIds() const { return m_hiddenIds; }
     void setHiddenIds(const QVariantList &ids);
     QVariantMap search() const { return m_search; }
@@ -95,10 +105,14 @@ public:
     Q_INVOKABLE QVariantList unreadMessageIds() const;
     // The accounts the selected messages belong to: moving needs them all in one.
     Q_INVOKABLE QVariantList selectedAccountIds() const;
+    // The messages a row stands for: with threaded, all of its conversation's in the list,
+    // otherwise just the one. What's selected stands for the same.
+    Q_INVOKABLE QVariantList messageIdsOf(int messageId) const;
 
 signals:
     void folderIdsChanged();
     void unreadOnlyChanged();
+    void threadedChanged();
     void hiddenIdsChanged();
     void searchChanged();
     void searchingBodiesChanged();
@@ -113,6 +127,10 @@ protected:
 private:
     void onMessagesRemoved(const QMailMessageIdList &ids);
     void updateKey();
+    // force: set the key even when the rows are the same, as after the folders changed.
+    void regroup(bool force = false);
+    void onStoreChanged();
+    QMailMessageIdList membersOf(const QMailMessageId &id) const;
     void onMatched(const QMailMessageIdList &ids);
     void onBodySearchActivity();
     void onServerSearchActivity(QMailSearchAction *search);
@@ -121,6 +139,15 @@ private:
     QVariantList m_folderIds;
     bool m_unreadOnly = false;
     QVariantList m_hiddenIds;
+    bool m_threaded = false;
+    // With threaded: the messages grouped, each row's messages, the unread ones among them, and
+    // the rows' conversations' sizes.
+    QMailMessageKey m_threadedKey;
+    QMailMessageIdList m_rows;
+    QHash<QMailMessageId, QMailMessageIdList> m_members;
+    QSet<QMailMessageId> m_unread;
+    mutable QHash<QMailThreadId, int> m_threadSizes;
+    QTimer m_regroupTimer;
     QVariantMap m_search;
     // Found in the mail's text or on the server, besides what matches the search's key.
     QMailMessageIdList m_matches;

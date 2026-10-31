@@ -98,7 +98,10 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   mail is marked read and left out of the lists, then marked unread at its time, or when the app
   next starts. A virtual Snoozed folder shows what's waiting while there is any.
 - Snoozing a selection, from the panel.
-- Conversations: replies grouped with the mail they answer, as FairEmail and Gmail do.
+- ✓ Conversations, on unless switched off in Settings: a folder or the unified inbox has one row
+  per conversation (QMF's threads), its newest mail with the conversation's size, unread when
+  any of it is. It opens into all of its mail, in any folder, Sent included. Actions on the row
+  (archive, read, move, delete, snooze) cover the conversation's mail in that list.
 - A colour per account in the unified inbox, for when there's more than one.
 - ✓ In place of Jolla's Mail, with the opt-in `posthoorn-default-mail` package: Posthoorn answers
   com.jolla.email.ui, so the system's new-mail notifications (from qmf-notifications-plugin) and

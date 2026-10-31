@@ -20,6 +20,17 @@ Page {
             }
 
             SectionHeader {
+                text: qsTr("Message lists")
+            }
+
+            TextSwitch {
+                text: qsTr("Conversations")
+                description: qsTr("A mail and its replies as one row, opening into all of them")
+                checked: AppState.conversations
+                onCheckedChanged: AppState.conversations = checked
+            }
+
+            SectionHeader {
                 text: qsTr("Unified inbox")
             }
 

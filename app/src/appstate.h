@@ -25,6 +25,8 @@ class AppState : public QObject
     Q_PROPERTY(QStringList unifiedFolders READ unifiedFolders NOTIFY unifiedChanged)
     // Folders shown on the account overview, as "accountId/folderId", in the order added.
     Q_PROPERTY(QStringList favouriteFolders READ favouriteFolders NOTIFY favouritesChanged)
+    // Message lists with one row per conversation; on unless switched off in Settings.
+    Q_PROPERTY(bool conversations READ conversations WRITE setConversations NOTIFY conversationsChanged)
 
 public:
     explicit AppState(QObject *parent = nullptr);
@@ -38,6 +40,8 @@ public:
     bool unifiedConfigured() const { return m_unifiedConfigured; }
     QStringList unifiedFolders() const { return m_unifiedFolders; }
     QStringList favouriteFolders() const { return m_favourites; }
+    bool conversations() const { return m_conversations; }
+    void setConversations(bool conversations);
 
     Q_INVOKABLE void save(const QString &page, int accountId = 0, int folderId = 0);
     Q_INVOKABLE void setUnifiedFolders(const QStringList &folders);
@@ -50,6 +54,7 @@ signals:
     void changed();
     void unifiedChanged();
     void favouritesChanged();
+    void conversationsChanged();
 
 private:
     QSettings m_settings;
@@ -59,6 +64,7 @@ private:
     bool m_unifiedConfigured = false;
     QStringList m_unifiedFolders;
     QStringList m_favourites;
+    bool m_conversations = true;
 };
 
 #endif // APPSTATE_H

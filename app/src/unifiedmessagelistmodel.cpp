@@ -5,6 +5,9 @@
 #include <qmailfolder.h>
 #include <qmailserviceaction.h>
 #include <qmailstore.h>
+#include <qmailthread.h>
+
+#include <algorithm>
 
 UnifiedMessageListModel::UnifiedMessageListModel(QObject *parent)
     : QMailMessageListModel(parent)
@@ -20,6 +23,15 @@ UnifiedMessageListModel::UnifiedMessageListModel(QObject *parent)
     connect(this, &QAbstractItemModel::dataChanged, this, &UnifiedMessageListModel::unreadCountChanged);
     connect(QMailStore::instance(), &QMailStore::messagesRemoved,
             this, &UnifiedMessageListModel::onMessagesRemoved);
+
+    // Grouping again after changes, once a burst of them (a sync) is over.
+    m_regroupTimer.setSingleShot(true);
+    m_regroupTimer.setInterval(300);
+    connect(&m_regroupTimer, &QTimer::timeout, this, [this]() { regroup(); });
+    QMailStore *store = QMailStore::instance();
+    connect(store, &QMailStore::messagesAdded, this, &UnifiedMessageListModel::onStoreChanged);
+    connect(store, &QMailStore::messagesUpdated, this, &UnifiedMessageListModel::onStoreChanged);
+    connect(store, &QMailStore::messagesRemoved, this, &UnifiedMessageListModel::onStoreChanged);
 }
 
 UnifiedMessageListModel::~UnifiedMessageListModel()
@@ -47,6 +59,8 @@ QHash<int, QByteArray> UnifiedMessageListModel::roleNames() const
     roles.insert(FolderNameRole, "folderName");
     roles.insert(HasAttachmentsRole, "hasAttachments");
     roles.insert(StarredRole, "starred");
+    roles.insert(ThreadIdRole, "threadId");
+    roles.insert(ThreadCountRole, "threadCount");
     roles.insert(SelectedRole, "selected");
     return roles;
 }
@@ -67,6 +81,15 @@ void UnifiedMessageListModel::setUnreadOnly(bool unreadOnly)
     m_unreadOnly = unreadOnly;
     updateKey();
     emit unreadOnlyChanged();
+}
+
+void UnifiedMessageListModel::setThreaded(bool threaded)
+{
+    if (threaded == m_threaded)
+        return;
+    m_threaded = threaded;
+    updateKey();
+    emit threadedChanged();
 }
 
 void UnifiedMessageListModel::setHiddenIds(const QVariantList &ids)
@@ -123,6 +146,10 @@ void UnifiedMessageListModel::updateKey()
 {
     cancelSearches();
     m_matches.clear();
+    m_threadedKey = QMailMessageKey();
+    m_rows.clear();
+    m_members.clear();
+    m_unread.clear();
     m_serverKey = QMailMessageKey::nonMatchingKey();
     m_selected.clear();
     emit selectedMessageCountChanged();
@@ -144,7 +171,14 @@ void UnifiedMessageListModel::updateKey()
             key &= QMailMessageKey::status(QMailMessage::Read, QMailDataComparator::Excludes);
         if (!m_hiddenIds.isEmpty())
             key &= QMailMessageKey::id(messageIdList(m_hiddenIds), QMailDataComparator::Excludes);
-        setKey(folders.isEmpty() ? QMailMessageKey::nonMatchingKey() : key);
+        if (folders.isEmpty()) {
+            setKey(QMailMessageKey::nonMatchingKey());
+        } else if (m_threaded) {
+            m_threadedKey = key;
+            regroup(true);
+        } else {
+            setKey(key);
+        }
         return;
     }
 
@@ -164,6 +198,10 @@ void UnifiedMessageListModel::updateKey()
     filter &= flags;
     if (m_search.value(QStringLiteral("attachments")).toBool()) {
         filter &= QMailMessageKey::status(QMailMessage::HasAttachments, QMailDataComparator::Includes);
+        anything = true;
+    }
+    if (m_search.contains(QStringLiteral("thread"))) {
+        filter &= QMailMessageKey::parentThreadId(QMailThreadId(m_search.value(QStringLiteral("thread")).toULongLong()));
         anything = true;
     }
     if (m_search.contains(QStringLiteral("ids"))) {
@@ -294,7 +332,25 @@ QVariant UnifiedMessageListModel::data(const QMailMessageMetaData &metaData, int
     case TimeSectionRole:
         return metaData.date().toLocalTime().date();
     case ReadStatusRole:
+        if (m_members.contains(metaData.id())) {
+            for (const QMailMessageId &id : m_members.value(metaData.id())) {
+                if (m_unread.contains(id))
+                    return false;
+            }
+            return true;
+        }
         return (metaData.status() & QMailMessage::Read) != 0;
+    case ThreadIdRole:
+        return int(metaData.parentThreadId().toULongLong());
+    case ThreadCountRole: {
+        const QMailThreadId thread = metaData.parentThreadId();
+        if (!thread.isValid())
+            return 1;
+        auto size = m_threadSizes.constFind(thread);
+        if (size == m_threadSizes.constEnd())
+            size = m_threadSizes.insert(thread, qMax(1, int(QMailThread(thread).messageCount())));
+        return *size;
+    }
     case AccountIdRole:
         return int(metaData.parentAccountId().toULongLong());
     case FolderIdRole:
@@ -358,9 +414,73 @@ void UnifiedMessageListModel::deselectAllMessages()
 QVariantList UnifiedMessageListModel::selectedMessageIds() const
 {
     QVariantList ids;
-    for (const QMailMessageId &id : m_selected)
+    for (const QMailMessageId &id : m_selected) {
+        for (const QMailMessageId &member : membersOf(id))
+            ids.append(int(member.toULongLong()));
+    }
+    return ids;
+}
+
+QVariantList UnifiedMessageListModel::messageIdsOf(int messageId) const
+{
+    QVariantList ids;
+    for (const QMailMessageId &id : membersOf(QMailMessageId(messageId)))
         ids.append(int(id.toULongLong()));
     return ids;
+}
+
+QMailMessageIdList UnifiedMessageListModel::membersOf(const QMailMessageId &id) const
+{
+    const auto members = m_members.constFind(id);
+    return members != m_members.constEnd() ? *members : QMailMessageIdList() << id;
+}
+
+void UnifiedMessageListModel::onStoreChanged()
+{
+    if (!m_threadedKey.isEmpty())
+        m_regroupTimer.start();
+}
+
+void UnifiedMessageListModel::regroup(bool force)
+{
+    if (m_threadedKey.isEmpty())
+        return;
+    QMailMessageMetaDataList messages = QMailStore::instance()->messagesMetaData(
+                m_threadedKey, QMailMessageKey::Id | QMailMessageKey::ParentThreadId
+                | QMailMessageKey::Status | QMailMessageKey::TimeStamp);
+    std::sort(messages.begin(), messages.end(), [](const QMailMessageMetaData &a, const QMailMessageMetaData &b) {
+        return a.date().toUTC() > b.date().toUTC();
+    });
+
+    // The newest message of each conversation is its row.
+    QMailMessageIdList rows;
+    QHash<QMailThreadId, QMailMessageId> newest;
+    m_members.clear();
+    m_unread.clear();
+    m_threadSizes.clear();
+    for (const QMailMessageMetaData &message : messages) {
+        const QMailMessageId id = message.id();
+        if (!(message.status() & QMailMessage::Read))
+            m_unread.insert(id);
+        const QMailThreadId thread = message.parentThreadId();
+        const auto row = thread.isValid() ? newest.constFind(thread) : newest.constEnd();
+        if (row != newest.constEnd()) {
+            m_members[*row].append(id);
+            continue;
+        }
+        if (thread.isValid())
+            newest.insert(thread, id);
+        rows.append(id);
+        m_members.insert(id, QMailMessageIdList() << id);
+    }
+
+    // Setting the key resets the list, so only when the rows changed; otherwise only how they look.
+    if (force || rows != m_rows) {
+        m_rows = rows;
+        setKey(rows.isEmpty() ? QMailMessageKey::nonMatchingKey() : QMailMessageKey::id(rows));
+    } else if (rowCount() > 0) {
+        emit dataChanged(index(0), index(rowCount() - 1), QVector<int>() << ReadStatusRole << ThreadCountRole);
+    }
 }
 
 QVariantList UnifiedMessageListModel::unreadMessageIds() const
@@ -368,8 +488,14 @@ QVariantList UnifiedMessageListModel::unreadMessageIds() const
     QVariantList ids;
     for (int row = 0; row < rowCount(); ++row) {
         const QModelIndex idx = index(row);
-        if (!data(idx, ReadStatusRole).toBool())
-            ids.append(int(idFromIndex(idx).toULongLong()));
+        if (data(idx, ReadStatusRole).toBool())
+            continue;
+        // A conversation's unread messages, or the row's own.
+        const QMailMessageId rowId = idFromIndex(idx);
+        for (const QMailMessageId &id : membersOf(rowId)) {
+            if (!m_members.contains(rowId) || m_unread.contains(id))
+                ids.append(int(id.toULongLong()));
+        }
     }
     return ids;
 }

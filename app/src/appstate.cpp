@@ -20,6 +20,17 @@ AppState::AppState(QObject *parent)
     m_unifiedFolders.removeAll(QString());
     m_favourites = m_settings.value(QStringLiteral("favourites/folders")).toStringList();
     m_favourites.removeAll(QString());
+    m_conversations = m_settings.value(QStringLiteral("lists/conversations"), true).toBool();
+}
+
+void AppState::setConversations(bool conversations)
+{
+    if (conversations == m_conversations)
+        return;
+    m_conversations = conversations;
+    m_settings.setValue(QStringLiteral("lists/conversations"), conversations);
+    m_settings.sync();
+    emit conversationsChanged();
 }
 
 bool AppState::isFavourite(int accountId, int folderId) const

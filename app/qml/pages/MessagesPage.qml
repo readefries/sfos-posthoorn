@@ -11,6 +11,7 @@ Page {
     // The folder's own name when not set.
     property string title
     readonly property string shownTitle: searching ? qsTr("Search")
+                                                   : conversation ? title
                                                    : virtualFolder ? app.virtualFolderName(folderId)
                                                    : title.length > 0 ? title : folder.displayName
     // The unified inbox: the folders in app.unifiedFolders, of any account.
@@ -23,6 +24,9 @@ Page {
     property int folderId
     readonly property bool virtualFolder: !unified && !searching && app.isVirtualFolder(folderId)
     readonly property bool snoozedFolder: virtualFolder && folderId === app.snoozedFolderId
+    // A conversation's mail, in any folder; title is its subject.
+    property int threadId
+    readonly property bool conversation: threadId > 0
     property var accessor
 
     // What is searched for; the header's fields set these.
@@ -43,10 +47,13 @@ Page {
 
     UnifiedMessageListModel {
         id: messageModel
-        folderIds: page.searching || page.virtualFolder ? [] : page.unified ? app.unifiedFolderIds : [page.folderId]
+        folderIds: page.searching || page.virtualFolder || page.conversation ? []
+                 : page.unified ? app.unifiedFolderIds : [page.folderId]
+        threaded: AppState.conversations && !page.searching && !page.virtualFolder && !page.conversation
         // Snoozed mail is out of sight until it's time.
         hiddenIds: Snoozes.messageIds
-        search: page.virtualFolder ? app.virtualFolderSearch(page.folderId, page.accountId)
+        search: page.conversation ? { "thread": page.threadId }
+              : page.virtualFolder ? app.virtualFolderSearch(page.folderId, page.accountId)
               : !page.searching ? ({}) : {
             "text": page.searchText,
             "body": page.searchBody,
@@ -59,11 +66,11 @@ Page {
 
     EmailFolder {
         id: folder
-        folderAccessor: page.unified || page.searching || page.virtualFolder ? null : page.accessor
+        folderAccessor: page.unified || page.searching || page.virtualFolder || page.conversation ? null : page.accessor
     }
 
     onStatusChanged: {
-        if (status !== PageStatus.Active || searching)
+        if (status !== PageStatus.Active || searching || conversation)
             return
         if (unified)
             AppState.save("unified")
@@ -87,7 +94,7 @@ Page {
 
     function sync() {
         // Its mail can be in any folder.
-        if (virtualFolder) {
+        if (virtualFolder || conversation) {
             app.emailAgent.synchronize(accountId)
             return
         }
@@ -141,7 +148,7 @@ Page {
 
     // Whether any of the selection can be archived; the rest stays where it is.
     readonly property bool canArchiveSelected: {
-        if (!unified && !searching && !virtualFolder)
+        if (!unified && !searching && !virtualFolder && !conversation)
             return app.canArchive(accountId, folderId)
         messages.selectedMessageCount
         var ids = messages.selectedMessageIds()
@@ -163,7 +170,7 @@ Page {
         selecting = false
     }
 
-    readonly property bool canSwitchFolder: !unified && !searching && !selecting && accountId > 0
+    readonly property bool canSwitchFolder: !unified && !searching && !conversation && !selecting && accountId > 0
 
     // Picks another folder of the account and shows that instead of this one.
     function switchFolder() {
@@ -367,7 +374,7 @@ Page {
         }
 
         PushUpMenu {
-            visible: !page.selecting && !page.searching && !page.virtualFolder && list.count > 0
+            visible: !page.selecting && !page.searching && !page.virtualFolder && !page.conversation && list.count > 0
             busy: app.emailAgent.synchronizing
             MenuItem {
                 text: qsTr("Load older messages")
@@ -410,8 +417,14 @@ Page {
 
             onClicked: {
                 if (!page.selecting) {
+                    if (item.isConversation)
+                        pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
+                                           threadId: model.threadId,
+                                           accountId: model.accountId,
+                                           title: model.subject
+                                       })
                     // A draft is continued rather than read.
-                    if (model.folderId === app.emailAgent.draftsFolderId(model.accountId))
+                    else if (model.folderId === app.emailAgent.draftsFolderId(model.accountId))
                         pageStack.push(Qt.resolvedUrl("ComposePage.qml"), { draftId: model.messageId })
                     else
                         pageStack.push(Qt.resolvedUrl("MessagePage.qml"), { messageId: model.messageId })
@@ -419,6 +432,13 @@ Page {
                     messages.deselectMessage(index)
                 else
                     messages.selectMessage(index)
+            }
+
+            // A row standing for a conversation of more than one mail, which opens into all of them.
+            readonly property bool isConversation: messages.threaded && model.threadCount > 1
+            // The mail the row stands for: the conversation's in this list, or the one.
+            function rowIds() {
+                return messages.messageIdsOf(model.messageId)
             }
 
             // When a snoozed mail comes back.
@@ -433,11 +453,15 @@ Page {
                 MenuItem {
                     visible: app.canArchive(model.accountId, model.folderId)
                     text: qsTr("Archive")
-                    onClicked: app.archive(model.messageId)
+                    onClicked: {
+                        var ids = item.rowIds()
+                        for (var i = 0; i < ids.length; ++i)
+                            app.archive(ids[i])
+                    }
                 }
                 MenuItem {
                     text: page.snoozedFolder ? qsTr("Snooze until another time…") : qsTr("Snooze…")
-                    onClicked: app.pickSnooze(page, [model.messageId])
+                    onClicked: app.pickSnooze(page, item.rowIds())
                 }
                 MenuItem {
                     visible: page.snoozedFolder
@@ -451,10 +475,14 @@ Page {
                 MenuItem {
                     text: model.readStatus ? qsTr("Mark as unread") : qsTr("Mark as read")
                     onClicked: {
-                        if (model.readStatus)
+                        // Unread: only the newest, so the conversation shows up as unread.
+                        if (model.readStatus) {
                             app.emailAgent.markMessageAsUnread(model.messageId)
-                        else
-                            app.emailAgent.markMessageAsRead(model.messageId)
+                            return
+                        }
+                        var ids = item.rowIds()
+                        for (var i = 0; i < ids.length; ++i)
+                            app.emailAgent.markMessageAsRead(ids[i])
                     }
                 }
                 MenuItem {
@@ -465,9 +493,10 @@ Page {
                     text: qsTr("Move to…")
                     onClicked: {
                         // The delegate may be gone by the time a folder is picked.
-                        var id = model.messageId
-                        page.pickFolder(model.accountId, model.folderId, 1, function(folderId) {
-                            app.emailAgent.moveMessage(id, folderId)
+                        var ids = item.rowIds()
+                        page.pickFolder(model.accountId, model.folderId, ids.length, function(folderId) {
+                            for (var i = 0; i < ids.length; ++i)
+                                app.emailAgent.moveMessage(ids[i], folderId)
                         })
                     }
                 }
@@ -478,8 +507,8 @@ Page {
                 MenuItem {
                     text: qsTr("Delete")
                     onClicked: {
-                        var id = model.messageId
-                        item.remorseDelete(function() { app.emailAgent.deleteMessage(id) })
+                        var ids = item.rowIds()
+                        item.remorseDelete(function() { app.emailAgent.deleteMessagesFromVariantList(ids) })
                     }
                 }
             }
@@ -517,7 +546,7 @@ Page {
                             right: model.starred ? star.left : time.left
                             rightMargin: Theme.paddingSmall
                         }
-                        text: model.senderDisplayName
+                        text: model.senderDisplayName + (item.isConversation ? "  (" + model.threadCount + ")" : "")
                         font.bold: !model.readStatus
                         color: item.highlighted ? Theme.highlightColor : Theme.primaryColor
                         truncationMode: TruncationMode.Fade
@@ -538,7 +567,7 @@ Page {
                         anchors.right: parent.right
                         // In the unified inbox and search results, where a message is when that
                         // isn't an inbox.
-                        text: ((page.unified || page.searching || page.virtualFolder) && model.folderId !== app.emailAgent.inboxFolderId(model.accountId)
+                        text: ((page.unified || page.searching || page.virtualFolder || page.conversation) && model.folderId !== app.emailAgent.inboxFolderId(model.accountId)
                                ? model.folderName + " · " : "")
                               + (page.snoozedFolder ? item.snoozedUntil()
                                                     : Format.formatDate(model.qDateTime, Formatter.TimeValue))
