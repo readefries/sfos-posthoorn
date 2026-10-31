@@ -34,6 +34,8 @@ default_mail=$(ls "$build"/RPMS/posthoorn-default-mail-*.rpm)
 scp -q "$rpm" "$default_mail" "$host:"
 echo
 echo "Copied $(basename "$rpm") and $(basename "$default_mail") to $host. On the phone:"
-echo "  devel-su pkcon install-local ./$(basename "$rpm")"
+# Stopping the app afterwards, as a running one keeps the old version.
+stop="pkill -f '^/usr/bin/posthoorn'"
+echo "  devel-su pkcon install-local ./$(basename "$rpm"); $stop"
 echo "and, with Jolla's Mail uninstalled, to open mail notifications in Posthoorn:"
-echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail")"
+echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail"); $stop"
