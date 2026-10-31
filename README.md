@@ -1,15 +1,72 @@
 # Posthoorn
 
-An email client for Sailfish OS, aiming for the workflow of clients like FairEmail: quick
-read/unread handling, folders that are part of the flow, a reader that follows the Silica theme
-instead of showing mail on a white page, and PGP.
+An email client for Sailfish OS with the workflow of clients like FairEmail: quick read/unread
+handling, archiving and folders that are part of the flow, and a reader that follows the Silica
+theme instead of showing mail on a white page.
 
-Posthoorn builds on the system's Qt Messaging Framework (through the `Nemo.Email` QML plugin), the
-same backend as the stock Email app. Accounts come from Settings → Accounts, and sync, push (IMAP
-IDLE) and sending are done by the messageserver.
+Posthoorn builds on the system's Qt Messaging Framework (QMF, through the `Nemo.Email` QML plugin),
+the same backend as Jolla's Mail. Accounts come from Settings → Accounts, and sync, push (IMAP IDLE)
+and sending are done by the messageserver. It can be used next to Jolla's Mail, or
+[in its place](#using-it-in-place-of-jollas-mail).
 
-Status: spike. It lists accounts, folders and messages and shows a message's body as-is. See
-[docs/ROADMAP.md](docs/ROADMAP.md) for where it's going.
+## What it does
+
+**Reading**
+
+- Every mail, HTML or plain text, is reduced to its structure (paragraphs, emphasis, links, lists,
+  headings, quote levels) and drawn in the theme's font and colours. The sender's HTML is never
+  shown; when an HTML part has nothing readable, the text part is shown instead.
+- No remote images until asked for, per mail; tracking images never. Links are cleaned of
+  redirectors (Outlook Safe Links, Google, Facebook, Proofpoint) and tracking parameters, and show
+  where they go before opening.
+- Attachments open and save; mail text is selectable, and replying to a selection quotes only that.
+
+**Sorting**
+
+- A unified inbox of any folders of any accounts (the inboxes of all accounts by default),
+  favourite folders on the start page, and switching folders from a folder's title. With one
+  account its folders are on the start page. The app opens where it was left.
+- Per mail (long-press) or for a selection: archive, mark read or unread, star, move, delete.
+  Archiving moves mail to its account's archive folder, found by name or chosen in Settings.
+  Stars are the server's "flagged". "Mark all as read" for a folder or the unified inbox.
+- Search through all mail on the phone, in the subject, sender and recipients and optionally the
+  text, with filters for unread, starred and attachments, and on the servers too.
+
+**Writing**
+
+- New mail, reply, reply all and forward, from any of the accounts' addresses and aliases, with
+  recipient suggestions from Contacts. Quotes above or below the reply, or none; the account's
+  signature; attachments, also the original's when forwarding.
+- Drafts are saved when leaving and can be continued. Mail goes out as `format=flowed` plain text.
+
+**On the phone**
+
+- The cover has New mail and Sync buttons.
+- With `posthoorn-default-mail`, new-mail notifications and `mailto:` links open Posthoorn.
+
+Planned, among others: PGP, snooze, conversations and undo send. See
+[docs/ROADMAP.md](docs/ROADMAP.md) for those and the decisions made so far.
+
+## Installing
+
+Releases are on [GitHub](https://github.com/readefries/sfos-posthoorn/releases), see
+[Installing a release from GitHub](#installing-a-release-from-github). Posthoorn needs Sailfish OS
+5.1 or later.
+
+It can't go into the Jolla Store (Harbour): QMF keeps mail accounts in the system accounts
+database, which only Privileged apps can open. It's meant for SailfishOS:Chum.
+
+## Layout
+
+| Path    | What |
+|---------|------|
+| `core/` | Static library without UI, with unit tests: reducing HTML and plain text to structure (`mailcontent`), cleaning links (`linkcleaner`), `format=flowed` (`flowedtext`), mail addresses, splitting drafts (`maildraft`) and recognising archive folders. Qt Core only. |
+| `app/src/` | Glue to QMF and QML: the message list model (folders, unified inbox, search), building outgoing mail, starring, archive folders, saved state, and `MailUiService`, the `com.jolla.email.ui` D-Bus service. |
+| `app/qml/` | The Silica UI. |
+| `app/defaultmail/` | The files of `posthoorn-default-mail`: the D-Bus service file, the sailjail profile allowing the name, and the `mailto:` handler. |
+| `tests/` | Qt Test suite for `core`, run by the RPM build's `%check`. |
+
+Sailfish OS ships Qt 5.6: don't use newer Qt APIs.
 
 ## Building
 
@@ -17,14 +74,14 @@ With the Sailfish SDK:
 
     scripts/deploy.sh [ssh-host]
 
-builds the RPM and copies it to the phone (default host `sailfish`). Install it there with
+builds the RPMs, running the tests, and copies them to the phone (default host `sailfish`). It
+prints the line to install them with; each build gets its own release (`…dev<time>.g<commit>`), so
+`pkcon install-local` never skips one as already installed.
 
-    devel-su pkcon install-local ./posthoorn-*.rpm
-
-Because the app uses the system's mail APIs it can't go into the Jolla Store (Harbour); it's meant
-for SailfishOS:Chum.
-
-`scripts/docker-build.sh [release] [arch]` builds in the community SDK image, as CI does.
+`scripts/docker-build.sh [release] [arch]` builds in a community
+[coderus/sailfishos-platform-sdk](https://hub.docker.com/r/coderus/sailfishos-platform-sdk) image,
+with RPMs in `build-docker/<release>-<arch>/`. CI (`.github/workflows/build.yml`) runs it on every
+push for 5.1.0.11 (aarch64, armv7hl, i486) and 5.2.0.15 (aarch64).
 
 ## Releasing
 
