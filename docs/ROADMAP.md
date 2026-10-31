@@ -86,7 +86,14 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - Moving mail between accounts: QMF only moves within one, so copy to the other account, then
   delete.
 - ✓ Start where the app was left: the last folder (or account) opens again after a restart.
-- With a single account, the account overview could be skipped altogether.
+- ✓ With a single account, its folders are on the start page, below the unified inbox and the
+  favourites, instead of on a page of their own.
+- ✓ A New mail button on the cover, next to Sync.
+- The cover showing what's waiting: the unified inbox's unread count and the newest unread
+  senders and subjects.
+- Snooze: a mail leaves the inbox until a chosen time, then comes back unread.
+- Conversations: replies grouped with the mail they answer, as FairEmail and Gmail do.
+- A colour per account in the unified inbox, for when there's more than one.
 - ✓ In place of Jolla's Mail, with the opt-in `posthoorn-default-mail` package: Posthoorn answers
   com.jolla.email.ui, so the system's new-mail notifications (from qmf-notifications-plugin) and
   mailto: links open it. Its sailjail profile allows the name; it conflicts with jolla-email.
@@ -109,6 +116,7 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   forwarding (downloaded into the mail store first, not into Downloads), removing them again.
 - ✓ Opening and saving the attachments of received mail: listed in the reader, downloaded on a
   tap (into Downloads, where the apps that open them can read them) and opened.
+- Undo send: after Send, a few seconds' countdown to cancel, like deleting has.
 - ✓ Our own message builder (`OutgoingMessage`, with QMF): the text goes out as
   `text/plain; charset=UTF-8; format=flowed`, quoted-printable, instead of the plugin's base64
   without flowed. Stored, sent and saved as drafts the way the plugin does.

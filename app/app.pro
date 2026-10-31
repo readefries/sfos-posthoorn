@@ -47,6 +47,7 @@ DISTFILES += \
     qml/pages/AccountsPage.qml \
     qml/pages/AttachmentItem.qml \
     qml/pages/ComposePage.qml \
+    qml/pages/FolderItem.qml \
     qml/pages/FoldersPage.qml \
     qml/pages/MessagesPage.qml \
     qml/pages/MessagePage.qml \

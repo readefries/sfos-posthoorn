@@ -205,6 +205,8 @@ Page {
 
                 PageHeader {
                     id: pageHeader
+                    // See AccountsPage.
+                    page: list.parent
                     title: page.selecting ? qsTr("%n selected", "", messages.selectedMessageCount)
                                           : page.shownTitle + (page.canSwitchFolder ? " ▾" : "")
                     description: page.selecting ? page.shownTitle

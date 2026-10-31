@@ -206,10 +206,11 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
 
-                // Not a PageHeader: that aligns right, while the header lines below start left.
+                // Not a PageHeader: that aligns right, while the header lines below start left. So
+                // keeping clear of the camera cutout is done here.
                 Item {
                     width: 1
-                    height: Theme.paddingLarge
+                    height: Theme.paddingLarge + (page.isPortrait ? Screen.topCutout.height : 0)
                 }
                 Item {
                     width: parent.width

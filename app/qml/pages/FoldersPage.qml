@@ -59,6 +59,8 @@ Page {
         model: folders
 
         header: PageHeader {
+            // See AccountsPage.
+            page: list.parent
             title: page.title
         }
 
@@ -92,51 +94,14 @@ Page {
             hintText: qsTr("Pull down to refresh the folder list")
         }
 
-        delegate: ListItem {
-            enabled: model.canHaveMessages
-            contentHeight: Theme.itemSizeSmall
+        delegate: FolderItem {
+            accountId: page.accountId
+            folderId: model.folderId
+            name: model.folderName
+            nestingLevel: model.folderNestingLevel
+            unreadCount: model.folderUnreadCount
+            canHaveMessages: model.canHaveMessages
             onClicked: page.openFolder(index, model.folderId, model.folderName, PageStackAction.Animated)
-
-            menu: ContextMenu {
-                MenuItem {
-                    readonly property bool favourite: {
-                        AppState.favouriteFolders
-                        return AppState.isFavourite(page.accountId, model.folderId)
-                    }
-                    text: favourite ? qsTr("Remove from favourites") : qsTr("Add to favourites")
-                    onClicked: AppState.setFavourite(page.accountId, model.folderId, !favourite)
-                }
-                MenuItem {
-                    visible: model.folderUnreadCount > 0
-                    text: qsTr("Mark all as read")
-                    onClicked: app.markFoldersRead([model.folderId])
-                }
-            }
-
-            Label {
-                anchors {
-                    left: parent.left
-                    right: unread.left
-                    leftMargin: Theme.horizontalPageMargin + model.folderNestingLevel * Theme.paddingLarge
-                    rightMargin: Theme.paddingMedium
-                    verticalCenter: parent.verticalCenter
-                }
-                text: model.folderName
-                color: !model.canHaveMessages ? Theme.secondaryColor
-                                              : highlighted ? Theme.highlightColor : Theme.primaryColor
-                truncationMode: TruncationMode.Fade
-            }
-
-            Label {
-                id: unread
-                anchors {
-                    right: parent.right
-                    rightMargin: Theme.horizontalPageMargin
-                    verticalCenter: parent.verticalCenter
-                }
-                text: model.folderUnreadCount > 0 ? model.folderUnreadCount : ""
-                color: Theme.highlightColor
-            }
         }
 
         VerticalScrollDecorator { }

@@ -31,6 +31,8 @@ Page {
         model: folders
 
         header: PageHeader {
+            // See AccountsPage.
+            page: list.parent
             title: page.title
             description: page.description
         }

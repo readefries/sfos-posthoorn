@@ -4,10 +4,29 @@ import Sailfish.Silica 1.0
 import Nemo.Email 0.1
 import Posthoorn 1.0
 
+// Where the app starts: the unified inbox, the favourites and the accounts. With a single account
+// its folders are here instead, without a page of their own.
 Page {
     id: page
 
     property bool restored: false
+
+    readonly property int singleAccountId: app.accounts.numberOfAccounts === 1 ? app.accounts.accountId(0) : 0
+    readonly property bool single: singleAccountId > 0
+
+    FolderListModel {
+        id: singleFolders
+        accountKey: page.singleAccountId
+    }
+
+    function openFolder(index, folderId, operation) {
+        // The name comes from the folder itself, see MessagesPage.
+        pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
+                           accountId: page.singleAccountId,
+                           folderId: folderId,
+                           accessor: singleFolders.folderAccessor(index)
+                       }, operation)
+    }
 
     function openUnified(operation) {
         pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
@@ -31,7 +50,11 @@ Page {
         if (AppState.page === "unified" || (AppState.page === "messages" && accountId === 0)) {
             if (app.accounts.numberOfAccounts > 0)
                 openUnified(PageStackAction.Immediate)
-        } else if ((AppState.page === "folders" || AppState.page === "messages")
+        } else if (single && AppState.page === "messages" && accountId === singleAccountId) {
+            var index = singleFolders.indexFromFolderId(AppState.folderId)
+            if (index >= 0)
+                openFolder(index, AppState.folderId, PageStackAction.Immediate)
+        } else if (!single && (AppState.page === "folders" || AppState.page === "messages")
                    && app.accounts.indexFromAccountId(accountId) >= 0) {
             pageStack.push(Qt.resolvedUrl("FoldersPage.qml"), {
                                accountId: accountId,
@@ -63,18 +86,22 @@ Page {
     SilicaListView {
         id: list
         anchors.fill: parent
-        model: app.accounts
+        model: page.single ? singleFolders : app.accounts
+        delegate: page.single ? folderDelegate : accountDelegate
 
         header: Column {
             width: list.width
 
             PageHeader {
-                title: qsTr("Accounts")
+                // The header doesn't find its page from inside the list, and without it the
+                // title doesn't keep clear of the camera cutout.
+                page: list.parent
+                title: page.single ? app.accounts.displayNameFromAccountId(page.singleAccountId) : qsTr("Accounts")
             }
 
             ListItem {
                 id: unifiedInbox
-                visible: list.count > 0
+                visible: app.accounts.numberOfAccounts > 0
                 contentHeight: Theme.itemSizeMedium
                 onClicked: page.openUnified(PageStackAction.Animated)
                 menu: ContextMenu {
@@ -189,8 +216,8 @@ Page {
             }
 
             SectionHeader {
-                visible: favourites.count > 0
-                text: qsTr("Accounts")
+                visible: page.single || favourites.count > 0
+                text: page.single ? qsTr("Folders") : qsTr("Accounts")
             }
         }
 
@@ -205,6 +232,11 @@ Page {
                 onClicked: app.search()
             }
             MenuItem {
+                visible: page.single
+                text: qsTr("Refresh folder list")
+                onClicked: app.emailAgent.retrieveFolderList(page.singleAccountId)
+            }
+            MenuItem {
                 text: qsTr("Sync all folders")
                 onClicked: app.emailAgent.accountsSyncAllFolders()
             }
@@ -213,7 +245,7 @@ Page {
                 onClicked: app.emailAgent.accountsSyncInbox()
             }
             MenuItem {
-                visible: list.count > 0
+                visible: app.accounts.numberOfAccounts > 0
                 text: qsTr("New mail")
                 onClicked: app.compose(0)
             }
@@ -221,11 +253,30 @@ Page {
 
         ViewPlaceholder {
             enabled: list.count === 0
-            text: qsTr("No email accounts")
-            hintText: qsTr("Add one in Settings → Accounts")
+            text: page.single ? qsTr("No folders yet") : qsTr("No email accounts")
+            hintText: page.single ? qsTr("Pull down to refresh the folder list")
+                                  : qsTr("Add one in Settings → Accounts")
         }
 
-        delegate: ListItem {
+        VerticalScrollDecorator { }
+    }
+
+    Component {
+        id: folderDelegate
+        FolderItem {
+            accountId: page.singleAccountId
+            folderId: model.folderId
+            name: model.folderName
+            nestingLevel: model.folderNestingLevel
+            unreadCount: model.folderUnreadCount
+            canHaveMessages: model.canHaveMessages
+            onClicked: page.openFolder(index, model.folderId, PageStackAction.Animated)
+        }
+    }
+
+    Component {
+        id: accountDelegate
+        ListItem {
             contentHeight: Theme.itemSizeMedium
 
             onClicked: pageStack.push(Qt.resolvedUrl("FoldersPage.qml"),
@@ -264,7 +315,5 @@ Page {
                 color: Theme.highlightColor
             }
         }
-
-        VerticalScrollDecorator { }
     }
 }

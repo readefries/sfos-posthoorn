@@ -10,6 +10,13 @@ CoverBackground {
 
     CoverActionList {
         CoverAction {
+            iconSource: "image://theme/icon-cover-new"
+            onTriggered: {
+                app.activate()
+                app.request(function() { app.compose(0) })
+            }
+        }
+        CoverAction {
             iconSource: "image://theme/icon-cover-sync"
             onTriggered: app.emailAgent.accountsSyncInbox()
         }
