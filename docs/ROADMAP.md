@@ -75,7 +75,9 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   remote search, up to 100 mails each), for text, unread and starred. What it finds is shown
   with the rest and removed from the phone again when the search page goes.
 - ✓ Move to a folder of the same account, from the list and from an open mail.
-- Folders as part of the flow: folder drawer per account, favourites.
+- ✓ Favourite folders: added and removed from a folder's long-press menu, its pulley or the
+  folder switcher, shown on the account overview under the unified inbox with their unread count.
+- ✓ Switching folders from a folder's title (▾), without going back through the folder list.
 - ✓ A unified inbox that can be configured: by default the inboxes of all accounts (also ones
   added later), with any folder of any account added or left out. Also there with a single
   account. Messages outside an inbox show their folder. Bulk moving works when the selection is

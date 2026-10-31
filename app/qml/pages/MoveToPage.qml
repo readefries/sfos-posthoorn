@@ -2,6 +2,7 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Nemo.Email 0.1
+import Posthoorn 1.0
 
 // Picks the folder to move mail to, or another folder of one account. QMF only moves within an
 // account, so it lists that account's folders.
@@ -14,6 +15,8 @@ Page {
     property int count: 1
     property string title: qsTr("Move to")
     property string description: qsTr("%n message(s)", "", count)
+    // A long-press menu to add folders to the favourites, when switching folders.
+    property bool offerFavourites: false
 
     signal folderChosen(int folderId)
 
@@ -38,6 +41,21 @@ Page {
             contentHeight: Theme.itemSizeSmall
 
             onClicked: page.folderChosen(model.folderId)
+            menu: page.offerFavourites ? favouriteMenu : null
+
+            Component {
+                id: favouriteMenu
+                ContextMenu {
+                    MenuItem {
+                        readonly property bool favourite: {
+                            AppState.favouriteFolders
+                            return AppState.isFavourite(page.accountId, model.folderId)
+                        }
+                        text: favourite ? qsTr("Remove from favourites") : qsTr("Add to favourites")
+                        onClicked: AppState.setFavourite(page.accountId, model.folderId, !favourite)
+                    }
+                }
+            }
 
             Label {
                 anchors {

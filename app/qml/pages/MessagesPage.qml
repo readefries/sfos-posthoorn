@@ -146,6 +146,26 @@ Page {
         selecting = false
     }
 
+    readonly property bool canSwitchFolder: !unified && !searching && !selecting && accountId > 0
+
+    // Picks another folder of the account and shows that instead of this one.
+    function switchFolder() {
+        var picker = pageStack.push(Qt.resolvedUrl("MoveToPage.qml"), {
+                                        accountId: accountId,
+                                        currentFolderId: folderId,
+                                        title: qsTr("Folders"),
+                                        description: app.accounts.displayNameFromAccountId(accountId),
+                                        offerFavourites: true
+                                    })
+        picker.folderChosen.connect(function(chosen) {
+            pageStack.replaceAbove(pageStack.previousPage(page), Qt.resolvedUrl("MessagesPage.qml"), {
+                                       accountId: page.accountId,
+                                       folderId: chosen,
+                                       accessor: app.emailAgent.accessorFromFolderId(chosen)
+                                   })
+        })
+    }
+
     // Lets the user pick a folder of accountId, then calls moved with it and comes back here.
     function pickFolder(accountId, currentFolderId, count, moved) {
         var picker = pageStack.push(Qt.resolvedUrl("MoveToPage.qml"), {
@@ -171,14 +191,24 @@ Page {
         header: Column {
             width: list.width
 
-            PageHeader {
-                title: page.selecting ? qsTr("%n selected", "", messages.selectedMessageCount) : page.shownTitle
-                description: page.selecting ? page.shownTitle
-                                            : page.searching && messages.searchingServer
-                                              ? qsTr("Searching on the server…")
-                                              : page.searching && messages.searchingBodies
-                                                ? qsTr("Looking in the text of mails…")
-                                                : qsTr("%n message(s)", "", messages.count)
+            // A folder's title opens the account's other folders.
+            BackgroundItem {
+                width: parent.width
+                height: pageHeader.height
+                enabled: page.canSwitchFolder
+                onClicked: page.switchFolder()
+
+                PageHeader {
+                    id: pageHeader
+                    title: page.selecting ? qsTr("%n selected", "", messages.selectedMessageCount)
+                                          : page.shownTitle + (page.canSwitchFolder ? " ▾" : "")
+                    description: page.selecting ? page.shownTitle
+                                                : page.searching && messages.searchingServer
+                                                  ? qsTr("Searching on the server…")
+                                                  : page.searching && messages.searchingBodies
+                                                    ? qsTr("Looking in the text of mails…")
+                                                    : qsTr("%n message(s)", "", messages.count)
+                }
             }
 
             SearchField {
@@ -286,6 +316,15 @@ Page {
             }
 
             // Sync is the closest to the finger.
+            MenuItem {
+                readonly property bool favourite: {
+                    AppState.favouriteFolders
+                    return AppState.isFavourite(page.accountId, page.folderId)
+                }
+                visible: page.canSwitchFolder
+                text: favourite ? qsTr("Remove from favourites") : qsTr("Add to favourites")
+                onClicked: AppState.setFavourite(page.accountId, page.folderId, !favourite)
+            }
             MenuItem {
                 visible: !page.selecting
                 text: qsTr("Settings")

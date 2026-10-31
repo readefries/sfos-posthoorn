@@ -18,6 +18,30 @@ AppState::AppState(QObject *parent)
     m_unifiedConfigured = m_settings.contains(QStringLiteral("unified/folders"));
     m_unifiedFolders = m_settings.value(QStringLiteral("unified/folders")).toStringList();
     m_unifiedFolders.removeAll(QString());
+    m_favourites = m_settings.value(QStringLiteral("favourites/folders")).toStringList();
+    m_favourites.removeAll(QString());
+}
+
+bool AppState::isFavourite(int accountId, int folderId) const
+{
+    return m_favourites.contains(QStringLiteral("%1/%2").arg(accountId).arg(folderId));
+}
+
+void AppState::setFavourite(int accountId, int folderId, bool favourite)
+{
+    const QString entry = QStringLiteral("%1/%2").arg(accountId).arg(folderId);
+    if (favourite == m_favourites.contains(entry))
+        return;
+    if (favourite)
+        m_favourites.append(entry);
+    else
+        m_favourites.removeAll(entry);
+    if (m_favourites.isEmpty())
+        m_settings.remove(QStringLiteral("favourites/folders"));
+    else
+        m_settings.setValue(QStringLiteral("favourites/folders"), m_favourites);
+    m_settings.sync();
+    emit favouritesChanged();
 }
 
 void AppState::setUnifiedFolders(const QStringList &folders)

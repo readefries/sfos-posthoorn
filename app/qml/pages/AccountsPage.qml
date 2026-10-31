@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import QtQuick 2.0
 import Sailfish.Silica 1.0
+import Nemo.Email 0.1
 import Posthoorn 1.0
 
 Page {
@@ -97,6 +98,91 @@ Page {
                         truncationMode: TruncationMode.Fade
                     }
                 }
+            }
+
+            SectionHeader {
+                visible: favourites.count > 0
+                text: qsTr("Favourites")
+            }
+
+            // Added from a folder's long-press menu.
+            Repeater {
+                id: favourites
+                model: AppState.favouriteFolders
+
+                ListItem {
+                    id: favourite
+
+                    readonly property int accountId: parseInt(modelData.split("/")[0])
+                    readonly property int folderId: parseInt(modelData.split("/")[1])
+
+                    // Not for a folder that's gone, or of an account that's gone.
+                    visible: app.accounts.indexFromAccountId(accountId) >= 0 && folder.displayName.length > 0
+                    width: parent.width
+                    contentHeight: visible ? Theme.itemSizeMedium : 0
+
+                    onClicked: pageStack.push(Qt.resolvedUrl("MessagesPage.qml"), {
+                                                  accountId: accountId,
+                                                  folderId: folderId,
+                                                  accessor: folder.folderAccessor
+                                              })
+
+                    menu: ContextMenu {
+                        MenuItem {
+                            visible: folder.folderUnreadCount > 0
+                            text: qsTr("Mark all as read")
+                            onClicked: app.markFoldersRead([favourite.folderId])
+                        }
+                        MenuItem {
+                            text: qsTr("Remove from favourites")
+                            onClicked: AppState.setFavourite(favourite.accountId, favourite.folderId, false)
+                        }
+                    }
+
+                    EmailFolder {
+                        id: folder
+                        folderAccessor: app.emailAgent.accessorFromFolderId(favourite.folderId)
+                    }
+
+                    Column {
+                        anchors {
+                            left: parent.left
+                            right: favouriteUnread.left
+                            leftMargin: Theme.horizontalPageMargin
+                            rightMargin: Theme.paddingMedium
+                            verticalCenter: parent.verticalCenter
+                        }
+                        Label {
+                            width: parent.width
+                            text: folder.displayName
+                            color: favourite.highlighted ? Theme.highlightColor : Theme.primaryColor
+                            truncationMode: TruncationMode.Fade
+                        }
+                        Label {
+                            width: parent.width
+                            text: app.accounts.displayNameFromAccountId(favourite.accountId)
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.secondaryColor
+                            truncationMode: TruncationMode.Fade
+                        }
+                    }
+
+                    Label {
+                        id: favouriteUnread
+                        anchors {
+                            right: parent.right
+                            rightMargin: Theme.horizontalPageMargin
+                            verticalCenter: parent.verticalCenter
+                        }
+                        text: folder.folderUnreadCount > 0 ? folder.folderUnreadCount : ""
+                        color: Theme.highlightColor
+                    }
+                }
+            }
+
+            SectionHeader {
+                visible: favourites.count > 0
+                text: qsTr("Accounts")
             }
         }
 

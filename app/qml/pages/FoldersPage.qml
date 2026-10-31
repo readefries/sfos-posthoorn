@@ -95,17 +95,21 @@ Page {
         delegate: ListItem {
             enabled: model.canHaveMessages
             contentHeight: Theme.itemSizeSmall
-            menu: model.folderUnreadCount > 0 ? readMenu : null
-
             onClicked: page.openFolder(index, model.folderId, model.folderName, PageStackAction.Animated)
 
-            Component {
-                id: readMenu
-                ContextMenu {
-                    MenuItem {
-                        text: qsTr("Mark all as read")
-                        onClicked: app.markFoldersRead([model.folderId])
+            menu: ContextMenu {
+                MenuItem {
+                    readonly property bool favourite: {
+                        AppState.favouriteFolders
+                        return AppState.isFavourite(page.accountId, model.folderId)
                     }
+                    text: favourite ? qsTr("Remove from favourites") : qsTr("Add to favourites")
+                    onClicked: AppState.setFavourite(page.accountId, model.folderId, !favourite)
+                }
+                MenuItem {
+                    visible: model.folderUnreadCount > 0
+                    text: qsTr("Mark all as read")
+                    onClicked: app.markFoldersRead([model.folderId])
                 }
             }
 
