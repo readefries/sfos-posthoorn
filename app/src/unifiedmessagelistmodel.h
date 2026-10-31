@@ -22,6 +22,8 @@ class UnifiedMessageListModel : public QMailMessageListModel
 {
     Q_OBJECT
     Q_PROPERTY(QVariantList folderIds READ folderIds WRITE setFolderIds NOTIFY folderIdsChanged)
+    // Only the unread messages of folderIds, as the cover shows them.
+    Q_PROPERTY(bool unreadOnly READ unreadOnly WRITE setUnreadOnly NOTIFY unreadOnlyChanged)
     // Searches instead of showing folderIds when not empty: all mail matching everything set of
     // "text" (in the subject, sender and recipients), "body" (true to look for the text in the
     // mail's text too), "unread", "starred", "attachments" (all true or left out) and "accountId"
@@ -64,6 +66,8 @@ public:
 
     QVariantList folderIds() const { return m_folderIds; }
     void setFolderIds(const QVariantList &ids);
+    bool unreadOnly() const { return m_unreadOnly; }
+    void setUnreadOnly(bool unreadOnly);
     QVariantMap search() const { return m_search; }
     void setSearch(const QVariantMap &search);
     bool searchingBodies() const { return !m_bodySearch.isNull(); }
@@ -90,6 +94,7 @@ public:
 
 signals:
     void folderIdsChanged();
+    void unreadOnlyChanged();
     void searchChanged();
     void searchingBodiesChanged();
     void serverSearchChanged();
@@ -109,6 +114,7 @@ private:
     void cancelSearches();
 
     QVariantList m_folderIds;
+    bool m_unreadOnly = false;
     QVariantMap m_search;
     // Found in the mail's text or on the server, besides what matches the search's key.
     QMailMessageIdList m_matches;

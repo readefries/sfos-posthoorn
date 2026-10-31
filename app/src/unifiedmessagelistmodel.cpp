@@ -60,6 +60,15 @@ void UnifiedMessageListModel::setFolderIds(const QVariantList &ids)
     emit folderIdsChanged();
 }
 
+void UnifiedMessageListModel::setUnreadOnly(bool unreadOnly)
+{
+    if (unreadOnly == m_unreadOnly)
+        return;
+    m_unreadOnly = unreadOnly;
+    updateKey();
+    emit unreadOnlyChanged();
+}
+
 void UnifiedMessageListModel::setSearch(const QVariantMap &search)
 {
     if (search == m_search)
@@ -106,10 +115,12 @@ void UnifiedMessageListModel::updateKey()
             if (folder.isValid())
                 folders.append(folder);
         }
-        // Not what a server search found, which is only for the search.
-        setKey(folders.isEmpty() ? QMailMessageKey::nonMatchingKey()
-                                 : QMailMessageKey::parentFolderId(folders) & present
-                                   & ~QMailSearchAction::temporaryKey());
+        QMailMessageKey key = QMailMessageKey::parentFolderId(folders) & present
+                // Not what a server search found, which is only for the search.
+                & ~QMailSearchAction::temporaryKey();
+        if (m_unreadOnly)
+            key &= QMailMessageKey::status(QMailMessage::Read, QMailDataComparator::Excludes);
+        setKey(folders.isEmpty() ? QMailMessageKey::nonMatchingKey() : key);
         return;
     }
 

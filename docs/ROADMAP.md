@@ -91,8 +91,8 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - ✓ A virtual Starred folder per account, above its folders: its starred mail, wherever it is.
   It can be a favourite like any folder.
 - ✓ A New mail button on the cover, next to Sync.
-- The cover showing what's waiting: the unified inbox's unread count and the newest unread
-  senders and subjects.
+- ✓ The cover shows what's waiting: the unified inbox's unread count and the newest unread
+  senders and subjects, as many as fit above its buttons.
 - Snooze: a mail leaves the inbox until a chosen time, then comes back unread.
 - Conversations: replies grouped with the mail they answer, as FairEmail and Gmail do.
 - A colour per account in the unified inbox, for when there's more than one.
