@@ -2,9 +2,10 @@
 # Builds the RPM and runs the tests in a community Sailfish OS SDK image
 # (https://hub.docker.com/r/coderus/sailfishos-platform-sdk), the same way CI does.
 #
-#   scripts/docker-build.sh [release] [arch]     default: 5.1.0.11 aarch64
+#   scripts/docker-build.sh [release] [arch] [gnupg]     default: 5.1.0.11 aarch64
 #
-# RPMs end up in build-docker/<release>-<arch>/. Extra `docker run` options can be given in
+# With "gnupg" it builds posthoorn-gnupg instead of the app, after downloading and checking its
+# sources (scripts/fetch-gnupg.sh). RPMs end up in build-docker/<release>-<arch>[-gnupg]/. Extra `docker run` options can be given in
 # DOCKER_RUN_ARGS; CI needs --privileged for the SDK's scratchbox2 (see .github/workflows).
 # RPM_VERSION overrides the spec's placeholder version, for release builds.
 set -eu
@@ -16,8 +17,16 @@ case "$version" in
     *) echo "RPM_VERSION must look like 1.2.3, not '$version'" >&2; exit 2 ;;
 esac
 arch=${2:-aarch64}
+project=${3:-}
 source_dir=$(cd "$(dirname "$0")/.." && pwd)
-output="$source_dir/build-docker/$release-$arch"
+output="$source_dir/build-docker/$release-$arch${project:+-$project}"
+# The app is the repository; posthoorn-gnupg is gnupg/, with its own spec.
+project_dir=src
+if [ "$project" = gnupg ]; then
+    "$source_dir/scripts/fetch-gnupg.sh"
+    project_dir=src/gnupg
+    version=
+fi
 
 mkdir -p "$output"
 # Only this build's RPMs, so nothing stale ever gets picked up (e.g. attached to a release).
@@ -37,7 +46,7 @@ docker run --rm ${DOCKER_RUN_ARGS:-} \
             sed -i 's/^Version:.*/Version:    $version/' ~/src/rpm/posthoorn.spec
         fi
         cd ~/build
-        mb2 -t SailfishOS-$release-$arch build ~/src
+        mb2 -t SailfishOS-$release-$arch build ~/$project_dir
         cp RPMS/*.rpm /output/
     "
 

@@ -143,5 +143,11 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 
 ### 5. PGP
 
-- Verify and sign through QMF's crypto service; `EmailMessage` also has `decrypt()`.
-- Encrypting, and key management through the GnuPG keyring.
+- ✓ A current GnuPG: Sailfish OS has 2.0.4 from 2007, without ECC keys. `posthoorn-gnupg` is
+  GnuPG 2.4 with its libraries, static, in `/usr/libexec/posthoorn/gnupg`, kept current by a weekly
+  workflow that reads GnuPG's signed software list. QMF's crypto plugins use the system's GnuPG, so
+  Posthoorn does PGP/MIME itself with this one.
+- Reading: signature status in the reader, decrypting with the passphrase asked in the app,
+  importing a public key from an attachment.
+- Signing: a key per account, chosen in Settings; a switch in the composer.
+- Encrypting to the recipients' keys, and a keys page: list, import, remove.

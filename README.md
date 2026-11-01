@@ -75,6 +75,7 @@ database, which only Privileged apps can open. It's meant for SailfishOS:Chum.
 | `app/qml/` | The Silica UI. |
 | `app/defaultmail/` | The files of `posthoorn-default-mail`: the D-Bus service file, the sailjail profile allowing the name, and the `mailto:` handler. |
 | `tests/` | Qt Test suite for `core`, run by the RPM build's `%check`. |
+| `gnupg/` | `posthoorn-gnupg`, a current GnuPG for Posthoorn alone (see below): its spec, the pinned sums of its sources, and GnuPG's release keys. |
 
 Sailfish OS ships Qt 5.6: don't use newer Qt APIs.
 
@@ -88,10 +89,28 @@ builds the RPMs, running the tests, and copies them to the phone (default host `
 prints the line to install them with; each build gets its own release (`…dev<time>.g<commit>`), so
 `pkcon install-local` never skips one as already installed.
 
-`scripts/docker-build.sh [release] [arch]` builds in a community
+`scripts/build-gnupg.sh [target]` builds `posthoorn-gnupg` the same way; it's separate, so app
+builds don't rebuild GnuPG.
+
+`scripts/docker-build.sh [release] [arch] [gnupg]` builds in a community
 [coderus/sailfishos-platform-sdk](https://hub.docker.com/r/coderus/sailfishos-platform-sdk) image,
 with RPMs in `build-docker/<release>-<arch>/`. CI (`.github/workflows/build.yml`) runs it on every
 push for 5.1.0.11 (aarch64, armv7hl, i486) and 5.2.0.15 (aarch64).
+
+## GnuPG
+
+Sailfish OS ships GnuPG 2.0, which knows no ECC keys (ed25519, cv25519). `posthoorn-gnupg` is
+GnuPG 2.4 with its own libgpg-error, libgcrypt, libassuan, libksba and npth, linked statically
+and installed in `/usr/libexec/posthoorn/gnupg`, so the system's GnuPG and what uses it aren't
+touched. It leaves out smartcards, keyservers (dirmngr), S/MIME and the rest Posthoorn doesn't use.
+
+Its sources aren't in the repository: `gnupg/SHA256SUMS` pins them, and `scripts/fetch-gnupg.sh`
+downloads them and refuses any that don't match. Every Monday `.github/workflows/gnupg-update.yml`
+runs `scripts/update-gnupg.sh`, which reads GnuPG's software list (`swdb.lst`) once its signature
+checks out against the release keys in `gnupg/release-keys.asc`, and opens a pull request with any
+newer versions. Merging it releases them. A new GnuPG release key has to be added to that file by
+hand; until then the update fails. To follow GnuPG 2.6 once it's out, change the branch at the top
+of `scripts/update-gnupg.sh`.
 
 ## Releasing
 

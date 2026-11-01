@@ -10,3 +10,6 @@ Makefile*
 # test binaries from in-tree builds, not their sources
 /tests/*/tst_*
 !/tests/*/tst_*.cpp
+
+# posthoorn-gnupg sources, downloaded by scripts/fetch-gnupg.sh
+/gnupg/rpm/*.tar.bz2

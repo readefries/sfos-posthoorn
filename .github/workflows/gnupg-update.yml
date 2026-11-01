@@ -1,0 +1,63 @@
+name: Update GnuPG
+
+# Once a week, checks GnuPG's signed software list for newer versions of posthoorn-gnupg's
+# sources (scripts/update-gnupg.sh). When there are, it opens a pull request (or updates the open
+# one) and starts the build on it. Merging it releases them: the commit is a fix.
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # the update branch
+      pull-requests: write # its pull request
+      actions: write       # starting the build on it
+    env:
+      BRANCH: gnupg-update
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check for new versions
+        id: check
+        run: |
+          scripts/update-gnupg.sh | tee changes.txt
+          if [ -s changes.txt ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+
+      # The tarballs must match the new sums before anything is proposed.
+      - name: Download and check the new sources
+        if: steps.check.outputs.changed == 'true'
+        run: scripts/fetch-gnupg.sh
+
+      - name: Open or update the pull request
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          summary=$(paste -sd ',' changes.txt | sed 's/,/, /g')
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -C "$BRANCH"
+          git add gnupg/SHA256SUMS gnupg/rpm/posthoorn-gnupg.spec
+          git commit -q -m "fix(gnupg): update $summary" \
+              -m "From GnuPG's signed software list (swdb.lst), checked by scripts/update-gnupg.sh."
+          git push -f origin "$BRANCH"
+          if [ -z "$(gh pr list --head "$BRANCH" --json number --jq '.[].number')" ]; then
+              gh pr create --head "$BRANCH" --title "fix(gnupg): update $summary" \
+                  --body "New versions on GnuPG's signed software list (swdb.lst):
+
+          $(sed 's/^/- /' changes.txt)
+
+          The sums in gnupg/SHA256SUMS come from that list; the sources were downloaded and match them. Merging this releases posthoorn-gnupg with them."
+          fi
+          # Pull requests opened with this workflow's token don't start other workflows by
+          # themselves; a workflow_dispatch does.
+          gh workflow run build.yml --ref "$BRANCH"
