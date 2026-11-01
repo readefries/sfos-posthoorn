@@ -41,6 +41,24 @@ Page {
                 onClicked: pageStack.push(Qt.resolvedUrl("KeysPage.qml"))
             }
 
+            TextSwitch {
+                enabled: app.pgpKeys.hasOwnKey
+                text: qsTr("Sign new mail")
+                description: app.pgpKeys.hasOwnKey
+                             ? qsTr("When one of your keys is for the address it's sent from. Can be switched off per mail.")
+                             : qsTr("Needs a key of your own, with its secret key")
+                checked: AppState.signByDefault
+                onCheckedChanged: AppState.signByDefault = checked
+            }
+
+            TextSwitch {
+                enabled: app.pgpKeys.hasOwnKey
+                text: qsTr("Attach your public key")
+                description: qsTr("To signed mail, so recipients can check the signature and write to you encrypted")
+                checked: AppState.attachPublicKey
+                onCheckedChanged: AppState.attachPublicKey = checked
+            }
+
             SectionHeader {
                 text: qsTr("Unified inbox")
             }

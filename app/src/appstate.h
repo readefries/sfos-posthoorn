@@ -27,6 +27,10 @@ class AppState : public QObject
     Q_PROPERTY(QStringList favouriteFolders READ favouriteFolders NOTIFY favouritesChanged)
     // Message lists with one row per conversation; on unless switched off in Settings.
     Q_PROPERTY(bool conversations READ conversations WRITE setConversations NOTIFY conversationsChanged)
+    // New mail is signed with PGP when there's a key for its From address; on unless switched off.
+    Q_PROPERTY(bool signByDefault READ signByDefault WRITE setSignByDefault NOTIFY signByDefaultChanged)
+    // Signed mail carries one's public key as an attachment; off unless switched on.
+    Q_PROPERTY(bool attachPublicKey READ attachPublicKey WRITE setAttachPublicKey NOTIFY attachPublicKeyChanged)
 
 public:
     explicit AppState(QObject *parent = nullptr);
@@ -42,6 +46,10 @@ public:
     QStringList favouriteFolders() const { return m_favourites; }
     bool conversations() const { return m_conversations; }
     void setConversations(bool conversations);
+    bool signByDefault() const { return m_signByDefault; }
+    void setSignByDefault(bool sign);
+    bool attachPublicKey() const { return m_attachPublicKey; }
+    void setAttachPublicKey(bool attach);
 
     Q_INVOKABLE void save(const QString &page, int accountId = 0, int folderId = 0);
     Q_INVOKABLE void setUnifiedFolders(const QStringList &folders);
@@ -55,6 +63,8 @@ signals:
     void unifiedChanged();
     void favouritesChanged();
     void conversationsChanged();
+    void signByDefaultChanged();
+    void attachPublicKeyChanged();
 
 private:
     QSettings m_settings;
@@ -65,6 +75,8 @@ private:
     QStringList m_unifiedFolders;
     QStringList m_favourites;
     bool m_conversations = true;
+    bool m_signByDefault = true;
+    bool m_attachPublicKey = false;
 };
 
 #endif // APPSTATE_H

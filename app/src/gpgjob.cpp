@@ -81,6 +81,19 @@ void GpgJob::rememberPassphrase(const QString &passphrase)
     passphraseExpiry = QDateTime::currentDateTimeUtc().addSecs(passphraseMinutes * 60);
 }
 
+QByteArray GpgJob::canonical(const QByteArray &data)
+{
+    QByteArray result;
+    result.reserve(data.size() + data.count('\n'));
+    for (int i = 0; i < data.size(); ++i) {
+        const char c = data.at(i);
+        if (c == '\n' && (i == 0 || data.at(i - 1) != '\r'))
+            result += '\r';
+        result += c;
+    }
+    return result;
+}
+
 void GpgJob::start(const QStringList &arguments, const QByteArray &input)
 {
     ++runningJobs;

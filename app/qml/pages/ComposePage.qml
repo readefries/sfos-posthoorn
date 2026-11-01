@@ -196,6 +196,9 @@ Dialog {
         for (var k = 0; k < draftFiles.count; ++k)
             kept.push(draftFiles.get(k).location)
         message.keptParts = kept
+        message.sign = signSwitch.visible && signSwitch.checked
+        message.signingKey = signSwitch.key
+        message.attachKey = AppState.attachPublicKey
     }
 
     // Everything that ends up in the mail, to tell whether anything was changed.
@@ -480,6 +483,19 @@ Dialog {
                 text: dialog.subject
                 EnterKey.iconSource: "image://theme/icon-m-enter-next"
                 EnterKey.onClicked: body.forceActiveFocus()
+            }
+
+            TextSwitch {
+                id: signSwitch
+                // The key for the From address.
+                readonly property string key: {
+                    app.pgpKeys.keys
+                    return app.pgpKeys.signingKeyFor(fromBox.value)
+                }
+                visible: key.length > 0
+                text: qsTr("Sign")
+                description: qsTr("With your PGP key, so recipients can tell it's from you, unchanged")
+                checked: AppState.signByDefault
             }
 
             SectionHeader {

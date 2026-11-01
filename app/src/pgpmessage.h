@@ -29,6 +29,8 @@ class PgpMessage : public QObject
     Q_PROPERTY(QString plainText READ plainText NOTIFY changed)
     Q_PROPERTY(QString html READ html NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
+    // The mail carries a public key (application/pgp-keys), such as the signer's.
+    Q_PROPERTY(bool hasAttachedKey READ hasAttachedKey NOTIFY changed)
 
 public:
     enum Kind { NotPgp, Signed, Encrypted };
@@ -53,9 +55,14 @@ public:
     QString plainText() const { return m_plainText; }
     QString html() const { return m_html; }
     QString error() const { return m_error; }
+    bool hasAttachedKey() const { return !m_attachedKey.isEmpty(); }
 
     // Decrypts an encrypted mail, with the passphrase of one's key when gpg-agent doesn't have it.
     Q_INVOKABLE void decrypt(const QString &passphrase = QString());
+    // Checks the mail again, as after importing a key.
+    Q_INVOKABLE void recheck();
+    // Writes the attached key to a file in the cache, for importing; returns its path.
+    Q_INVOKABLE QString saveAttachedKey();
 
 signals:
     void messageIdChanged();
@@ -88,6 +95,7 @@ private:
     QString m_error;
     // Inline PGP's armored block, or the PGP/MIME ciphertext.
     QByteArray m_armored;
+    QByteArray m_attachedKey;
     bool m_triedWithoutPassphrase = false;
     // The signed part checked was QMF's rebuilt one, not the original.
     bool m_rebuilt = false;

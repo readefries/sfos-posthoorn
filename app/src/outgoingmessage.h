@@ -37,7 +37,13 @@ class OutgoingMessage : public QObject
     Q_PROPERTY(QStringList forwardedParts READ forwardedParts WRITE setForwardedParts NOTIFY changed)
     // Attachments of the draft loaded with loadDraft() to keep, as part locations.
     Q_PROPERTY(QStringList keptParts READ keptParts WRITE setKeptParts NOTIFY changed)
-    // Why the last send() or saveDraft() failed.
+    // Sent signed with PGP/MIME, by the key for the From address; prepareSigned() first.
+    Q_PROPERTY(bool sign READ sign WRITE setSign NOTIFY changed)
+    // The fingerprint of the key to sign with; empty for the one for the From address.
+    Q_PROPERTY(QString signingKey READ signingKey WRITE setSigningKey NOTIFY changed)
+    // The signing key's public key goes along, as an attachment that's signed too.
+    Q_PROPERTY(bool attachKey READ attachKey WRITE setAttachKey NOTIFY changed)
+    // Why the last send(), saveDraft() or prepareSigned() failed.
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
 
 public:
@@ -65,6 +71,12 @@ public:
     void setForwardedParts(const QStringList &locations);
     QStringList keptParts() const { return m_keptParts; }
     void setKeptParts(const QStringList &locations);
+    bool sign() const { return m_sign; }
+    void setSign(bool sign);
+    QString signingKey() const { return m_signingKey; }
+    void setSigningKey(const QString &fingerprint);
+    bool attachKey() const { return m_attachKey; }
+    void setAttachKey(bool attach);
     QString error() const { return m_error; }
 
     // Continues a saved draft: sets everything from it, and makes saveDraft() replace it and
@@ -74,6 +86,10 @@ public:
     Q_INVOKABLE QVariantList draftAttachments() const;
     // The body split into { text, signature, attribution, quote, writtenBelowQuote }.
     Q_INVOKABLE QVariantMap draftParts() const;
+
+    // Builds the message and signs it, with the passphrase of the key when it isn't remembered;
+    // prepared() or prepareFailed() follows. send() then sends what was signed.
+    Q_INVOKABLE void prepareSigned(const QString &passphrase = QString());
 
     // Puts the message in the outbox. Returns its account's id, 0 when it couldn't be stored.
     Q_INVOKABLE int send();
@@ -86,10 +102,17 @@ public:
 signals:
     void changed();
     void errorChanged();
+    void prepared();
+    // needsPassphrase: asking for the key's passphrase and trying again could do.
+    void prepareFailed(bool needsPassphrase);
 
 private:
-    bool build(QMailMessage *message);
+    // The message, with its content (text, attachments) in content when that's given.
+    bool build(QMailMessage *message, QMailMessagePartContainer *content = nullptr);
     bool fail(const QString &error);
+    // What gpg is told to sign with: the key's fingerprint, or the From address.
+    QString signer() const;
+    void signWith(const QString &passphrase, const QByteArray &publicKey, const QString &fingerprint);
 
     QString m_from;
     QStringList m_to;
@@ -104,6 +127,13 @@ private:
     QStringList m_keptParts;
     QString m_error;
     QMailMessageId m_draftId;
+    bool m_sign = false;
+    QString m_signingKey;
+    bool m_attachKey = false;
+    // What prepareSigned() made: the message, and its signed part's bytes.
+    QMailMessage m_signedMessage;
+    QByteArray m_signedData;
+    bool m_prepared = false;
 };
 
 #endif // OUTGOINGMESSAGE_H

@@ -33,6 +33,9 @@ public:
     static QString passphrase();
     static void rememberPassphrase(const QString &passphrase);
 
+    // Signed data in its canonical form, with CRLF line ends (RFC 3156).
+    static QByteArray canonical(const QByteArray &data);
+
     // Runs gpg with arguments, after the ones every run gets. input goes to its stdin.
     void start(const QStringList &arguments, const QByteArray &input = QByteArray());
 

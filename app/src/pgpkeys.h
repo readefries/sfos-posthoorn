@@ -17,6 +17,8 @@ class PgpKeys : public QObject
     // expired, revoked }, one's own first.
     Q_PROPERTY(QVariantList keys READ keys NOTIFY keysChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    // One of the keys is one's own, with its secret key.
+    Q_PROPERTY(bool hasOwnKey READ hasOwnKey NOTIFY keysChanged)
     // Posthoorn's GnuPG (posthoorn-gnupg) is installed.
     Q_PROPERTY(bool available READ available CONSTANT)
 
@@ -25,9 +27,13 @@ public:
 
     QVariantList keys() const { return m_keys; }
     bool busy() const { return m_busy; }
+    bool hasOwnKey() const;
     bool available() const;
 
     Q_INVOKABLE void refresh();
+    // The fingerprint of one's own key (with its secret key) for address that can sign, empty
+    // for none.
+    Q_INVOKABLE QString signingKeyFor(const QString &address) const;
     // Imports the keys in the file at path; imported() tells how it went.
     Q_INVOKABLE void importFile(const QString &path);
     Q_INVOKABLE void remove(const QString &fingerprint);

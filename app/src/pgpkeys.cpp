@@ -76,6 +76,33 @@ void PgpKeys::setBusy(bool busy)
     }
 }
 
+bool PgpKeys::hasOwnKey() const
+{
+    for (const QVariant &entry : m_keys) {
+        if (entry.toMap().value(QStringLiteral("secret")).toBool())
+            return true;
+    }
+    return false;
+}
+
+QString PgpKeys::signingKeyFor(const QString &address) const
+{
+    if (address.isEmpty())
+        return QString();
+    const QString wanted = QLatin1Char('<') + address.toLower() + QLatin1Char('>');
+    for (const QVariant &entry : m_keys) {
+        const QVariantMap key = entry.toMap();
+        if (!key.value(QStringLiteral("secret")).toBool() || key.value(QStringLiteral("expired")).toBool()
+                || key.value(QStringLiteral("revoked")).toBool())
+            continue;
+        for (const QString &userId : key.value(QStringLiteral("userIds")).toStringList()) {
+            if (userId.toLower().contains(wanted))
+                return key.value(QStringLiteral("fingerprint")).toString();
+        }
+    }
+    return QString();
+}
+
 void PgpKeys::refresh()
 {
     if (!available())
@@ -167,10 +194,13 @@ void PgpKeys::onSecretListed(GpgJob *job)
         return left.value(QStringLiteral("name")).toString().compare(
                     right.value(QStringLiteral("name")).toString(), Qt::CaseInsensitive) < 0;
     });
+    // Only a real change, as open mail checks its signature again on one.
+    const bool changed = m_pending != m_keys;
     m_keys = m_pending;
     m_pending.clear();
     setBusy(false);
-    emit keysChanged();
+    if (changed)
+        emit keysChanged();
 }
 
 void PgpKeys::importFile(const QString &path)

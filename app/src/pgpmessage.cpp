@@ -60,18 +60,20 @@ QString findText(const QMailMessagePartContainer &container, const QByteArray &s
     return QString();
 }
 
-// Signed data is checked in its canonical form, with CRLF line ends (RFC 3156).
-QByteArray canonical(const QByteArray &data)
+// A public key attached to the mail (application/pgp-keys), as Posthoorn and Thunderbird send it.
+QByteArray findKey(const QMailMessagePartContainer &container)
 {
-    QByteArray result;
-    result.reserve(data.size() + data.count('\n'));
-    for (int i = 0; i < data.size(); ++i) {
-        const char c = data.at(i);
-        if (c == '\n' && (i == 0 || data.at(i - 1) != '\r'))
-            result += '\r';
-        result += c;
+    if (container.multipartType() == QMailMessagePartContainer::MultipartNone) {
+        if (container.hasBody() && container.contentType().content().toLower() == "application/pgp-keys")
+            return container.body().data(QMailMessageBody::Decoded);
+        return QByteArray();
     }
-    return result;
+    for (uint i = 0; i < container.partCount(); ++i) {
+        const QByteArray key = findKey(container.partAt(i));
+        if (!key.isEmpty())
+            return key;
+    }
+    return QByteArray();
 }
 
 // The first part of a multipart entity as it is in raw, between its first boundary and the next.
@@ -149,6 +151,9 @@ void PgpMessage::inspect()
     m_plainText.clear();
     m_html.clear();
     m_armored.clear();
+    m_attachedKey.clear();
+    // Saved for importing, which is done by now.
+    QFile::remove(QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/attached-key.asc"));
     m_triedWithoutPassphrase = false;
     if (m_messageId <= 0) {
         setState(Idle);
@@ -192,6 +197,7 @@ void PgpMessage::inspect()
         return;
     }
 
+    m_attachedKey = findKey(message);
     switch (m_form) {
     case MimeSigned:
         checkSigned(message);
@@ -215,6 +221,24 @@ void PgpMessage::inspect()
     case None:
         break;
     }
+}
+
+void PgpMessage::recheck()
+{
+    inspect();
+}
+
+QString PgpMessage::saveAttachedKey()
+{
+    if (m_attachedKey.isEmpty())
+        return QString();
+    const QString cache = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    QDir().mkpath(cache);
+    const QString path = cache + QStringLiteral("/attached-key.asc");
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(m_attachedKey) != m_attachedKey.size())
+        return QString();
+    return path;
 }
 
 void PgpMessage::onMessagesUpdated(const QMailMessageIdList &ids)
@@ -289,12 +313,16 @@ void PgpMessage::verifyMime(const QMailMessagePartContainer &container, const QB
         QFile::remove(m_tempFile);
     m_tempFile = file.fileName();
     m_rebuilt = rebuilt;
+    // QMF downloads attachments only when they're opened, so a key attached to the signed part is
+    // looked for in what's checked, which has everything.
+    if (m_attachedKey.isEmpty() && !rebuilt)
+        m_attachedKey = findKey(QMailMessage::fromRfc2822(signedData));
 
     GpgJob *job = newJob();
     connect(job, &GpgJob::finished, this, &PgpMessage::onVerified);
     setState(Working);
     job->start(QStringList() << QStringLiteral("--verify") << m_tempFile << QStringLiteral("-"),
-               canonical(signedData));
+               GpgJob::canonical(signedData));
 }
 
 void PgpMessage::onVerified()
@@ -413,6 +441,8 @@ void PgpMessage::showDecrypted(const QByteArray &output)
         m_plainText = QString::fromUtf8(output);
     if (entity.multipartType() == QMailMessagePartContainer::MultipartSigned
             && isProtocol(entity, "application/pgp-signature")) {
+        if (m_attachedKey.isEmpty())
+            m_attachedKey = findKey(entity);
         emit changed();
         // Its signed part from the decrypted text itself, as QMF's parser doesn't keep it.
         verifyMime(entity, firstPart(output, entity.contentType().boundary()), false);
@@ -441,9 +471,11 @@ void PgpMessage::readSignature(const GpgJob *job)
         m_signature = BadSignature;
         m_signer = who(job->statusArguments(QStringLiteral("BADSIG")));
     } else if (job->hasStatus(QStringLiteral("ERRSIG"))) {
-        // The last argument is the reason; 9 is a public key that's missing.
+        // The sixth argument is the reason, 9 for a public key that's missing (the signer's
+        // fingerprint follows it, since GnuPG 2.2.7).
         const QStringList arguments = job->statusArguments(QStringLiteral("ERRSIG"));
-        m_signature = !arguments.isEmpty() && arguments.last() == QLatin1String("9") ? UnknownKey : SignatureError;
+        m_signature = arguments.value(5) == QLatin1String("9") || job->hasStatus(QStringLiteral("NO_PUBKEY"))
+                ? UnknownKey : SignatureError;
         m_signer = arguments.value(0);
         m_fingerprint = arguments.value(6);
     }

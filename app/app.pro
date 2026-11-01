@@ -64,6 +64,7 @@ DISTFILES += \
     qml/pages/MessagePage.qml \
     qml/pages/MoveToPage.qml \
     qml/pages/OpenLinkDialog.qml \
+    qml/pages/PassphraseDialog.qml \
     qml/pages/PgpStatus.qml \
     qml/pages/ReceivedAttachmentItem.qml \
     qml/pages/SettingsPage.qml \

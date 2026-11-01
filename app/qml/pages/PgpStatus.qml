@@ -57,7 +57,7 @@ Column {
     }
 
     function askPassphrase() {
-        var dialog = pageStack.push(passphraseDialog)
+        var dialog = pageStack.push(Qt.resolvedUrl("PassphraseDialog.qml"), { acceptText: qsTr("Decrypt") })
         dialog.accepted.connect(function() { pgp.decrypt(dialog.passphrase) })
     }
 
@@ -114,47 +114,33 @@ Column {
         }
     }
 
+    // The signer's key, when the mail brought it along.
+    Button {
+        visible: pgp.state === PgpMessage.Done && pgp.signature === PgpMessage.UnknownKey && pgp.hasAttachedKey
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: qsTr("Import the attached key")
+        enabled: !app.pgpKeys.busy
+        onClicked: {
+            var path = pgp.saveAttachedKey()
+            if (path.length > 0)
+                app.pgpKeys.importFile(path)
+        }
+    }
+
+    // Checked again when the keyring changes: a key imported, from this mail or elsewhere, or
+    // removed. Not encrypted mail, which would have to be decrypted again.
+    Connections {
+        target: app.pgpKeys
+        onKeysChanged: {
+            if (pgp.kind === PgpMessage.Signed)
+                pgp.recheck()
+        }
+    }
+
     Button {
         visible: pgp.state === PgpMessage.NeedsPassphrase
         anchors.horizontalCenter: parent.horizontalCenter
         text: qsTr("Decrypt")
         onClicked: status.askPassphrase()
-    }
-
-    Component {
-        id: passphraseDialog
-
-        Dialog {
-            property alias passphrase: field.text
-
-            canAccept: field.text.length > 0
-
-            Column {
-                width: parent.width
-
-                DialogHeader {
-                    acceptText: qsTr("Decrypt")
-                }
-
-                PasswordField {
-                    id: field
-                    width: parent.width
-                    label: qsTr("Passphrase of your key")
-                    placeholderText: label
-                    focus: true
-                    EnterKey.iconSource: "image://theme/icon-m-enter-accept"
-                    EnterKey.onClicked: if (text.length > 0) accept()
-                }
-
-                Label {
-                    x: Theme.horizontalPageMargin
-                    width: parent.width - 2 * Theme.horizontalPageMargin
-                    text: qsTr("Posthoorn keeps it for 10 minutes, in memory only, so other encrypted mail opens without asking.")
-                    wrapMode: Text.Wrap
-                    font.pixelSize: Theme.fontSizeExtraSmall
-                    color: Theme.secondaryHighlightColor
-                }
-            }
-        }
     }
 }

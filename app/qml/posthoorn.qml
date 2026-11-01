@@ -286,6 +286,15 @@ ApplicationWindow {
             message.destroy()
             return
         }
+        if (message.sign)
+            signThenSend(message, page)
+        else
+            startSending(message, page)
+    }
+
+    function startSending(message, page) {
+        if (pendingSend)
+            sendNow()
         pendingSend = message
         sendTimer.restart()
         if (page) {
@@ -293,6 +302,29 @@ ApplicationWindow {
             if (popup)
                 popup.canceled.connect(app.undoSend)
         }
+    }
+
+    // Signed before the countdown starts, asking for the key's passphrase when it isn't
+    // remembered. Without it the mail stays in Drafts, which it already is.
+    function signThenSend(message, page) {
+        message.prepared.connect(function() { app.startSending(message, page) })
+        message.prepareFailed.connect(function(needsPassphrase) {
+            if (!needsPassphrase) {
+                Notices.show(qsTr("Not sent, it's in Drafts: %1").arg(message.error), Notice.Long, Notice.Center)
+                message.destroy()
+                return
+            }
+            whenIdle(function() {
+                var dialog = pageStack.push(Qt.resolvedUrl("pages/PassphraseDialog.qml"),
+                                            { acceptText: qsTr("Sign"), error: message.error })
+                dialog.accepted.connect(function() { message.prepareSigned(dialog.passphrase) })
+                dialog.rejected.connect(function() {
+                    Notices.show(qsTr("Not sent, it's in Drafts"), Notice.Short, Notice.Center)
+                    message.destroy()
+                })
+            })
+        })
+        message.prepareSigned("")
     }
 
     function sendNow() {

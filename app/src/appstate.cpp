@@ -21,6 +21,8 @@ AppState::AppState(QObject *parent)
     m_favourites = m_settings.value(QStringLiteral("favourites/folders")).toStringList();
     m_favourites.removeAll(QString());
     m_conversations = m_settings.value(QStringLiteral("lists/conversations"), true).toBool();
+    m_signByDefault = m_settings.value(QStringLiteral("pgp/signByDefault"), true).toBool();
+    m_attachPublicKey = m_settings.value(QStringLiteral("pgp/attachPublicKey"), false).toBool();
 }
 
 void AppState::setConversations(bool conversations)
@@ -31,6 +33,26 @@ void AppState::setConversations(bool conversations)
     m_settings.setValue(QStringLiteral("lists/conversations"), conversations);
     m_settings.sync();
     emit conversationsChanged();
+}
+
+void AppState::setSignByDefault(bool sign)
+{
+    if (sign == m_signByDefault)
+        return;
+    m_signByDefault = sign;
+    m_settings.setValue(QStringLiteral("pgp/signByDefault"), sign);
+    m_settings.sync();
+    emit signByDefaultChanged();
+}
+
+void AppState::setAttachPublicKey(bool attach)
+{
+    if (attach == m_attachPublicKey)
+        return;
+    m_attachPublicKey = attach;
+    m_settings.setValue(QStringLiteral("pgp/attachPublicKey"), attach);
+    m_settings.sync();
+    emit attachPublicKeyChanged();
 }
 
 bool AppState::isFavourite(int accountId, int folderId) const
