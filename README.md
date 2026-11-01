@@ -135,17 +135,21 @@ replace with the tag's.
 
 ### Installing a release from GitHub
 
-Download `posthoorn-<version>-1.<arch>.rpm` for your device (`uname -m`: `aarch64` on recent
-devices), and `posthoorn-default-mail-<version>-1.<arch>.rpm` too if Posthoorn takes over from
-Jolla's Mail (see below). Check where they came from before installing them:
+Download `posthoorn-<version>-1.<arch>.rpm` and `posthoorn-gnupg-<gnupg-version>-1.<arch>.rpm`,
+which it requires, for your device (`uname -m`: `aarch64` on recent devices), and
+`posthoorn-default-mail-<version>-1.<arch>.rpm` too if Posthoorn takes over from Jolla's Mail
+(see below). Check where they came from before installing them:
 
 ```sh
 sha256sum -c --ignore-missing SHA256SUMS
-gh attestation verify posthoorn-<version>-1.aarch64.rpm -R readefries/sfos-posthoorn  # built here, by CI
-devel-su pkcon install-local ./posthoorn-<version>-1.aarch64.rpm
+for rpm in posthoorn-*.aarch64.rpm; do   # built here, by CI
+    gh attestation verify "$rpm" -R readefries/sfos-posthoorn
+done
+devel-su pkcon install-local ./posthoorn-<version>-1.aarch64.rpm ./posthoorn-gnupg-<gnupg-version>-1.aarch64.rpm
 ```
 
-Packages installed this way don't update by themselves.
+`posthoorn-gnupg` only changes with GnuPG: once installed, it can be left out of later updates
+until a release brings a newer one. Packages installed this way don't update by themselves.
 
 ## Using it in place of Jolla's Mail
 
@@ -153,7 +157,9 @@ New-mail notifications and `mailto:` links open Jolla's Mail. With the `posthoor
 package they open Posthoorn instead. It conflicts with Jolla's Mail, so that has to go first:
 
     devel-su pkcon remove jolla-email
-    devel-su pkcon install posthoorn-default-mail
+    devel-su pkcon install-local ./posthoorn-default-mail-<version>-1.aarch64.rpm
+
+It requires the same version of `posthoorn`, so the two are updated together.
 
 Removing Jolla's Mail switches off the mail accounts: switch them on again in Settings → Accounts.
 A Sailfish OS upgrade may want Jolla's Mail back; remove `posthoorn-default-mail` for the upgrade
