@@ -65,6 +65,9 @@ library npth-%{npth_version} --disable-tests
 
 # gpg and gpg-agent: no smartcards, keyservers (dirmngr), LDAP, TLS or SQLite.
 cd gnupg-%{gnupg_version}
+# configure tries a conversion to see that iconv works, which fails in the i486 SDK, whose
+# build root lacks glibc's gconv modules; glibc's iconv works on the phones.
+export am_cv_func_iconv_works=yes
 ./configure --prefix=%{gnupg_prefix} \
     --with-libgpg-error-prefix="$deps" --with-libgcrypt-prefix="$deps" \
     --with-libassuan-prefix="$deps" --with-ksba-prefix="$deps" --with-npth-prefix="$deps" \
