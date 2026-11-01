@@ -48,13 +48,24 @@ and sending are done by the messageserver. It can be used next to Jolla's Mail, 
 - Drafts are saved when leaving and can be continued. Mail goes out as `format=flowed` plain text.
 - Sending can be undone for a few seconds; the mail then opens in the composer again.
 
+**PGP**
+
+- Signed mail shows who signed it and whether the signature holds; encrypted mail decrypts with
+  your key's passphrase, which Posthoorn keeps in memory for 10 minutes. PGP/MIME and inline PGP.
+- New mail is signed when one of your keys is for its From address, optionally with your public
+  key attached, and can be encrypted to the recipients' keys (and yours, for Sent). Replies to
+  encrypted mail are encrypted.
+- Keys are imported from a file, from an attachment, or with one tap when a signed mail brings
+  the sender's key along; listed and removed under Settings → Keys.
+- With a GnuPG of its own, `posthoorn-gnupg` (see [GnuPG](#gnupg)), and a keyring of its own.
+
 **On the phone**
 
 - The cover shows how much is unread in the unified inbox and the newest unread mails, with New
   mail and Sync buttons.
 - With `posthoorn-default-mail`, new-mail notifications and `mailto:` links open Posthoorn.
 
-Planned, among others: PGP and moving mail between accounts. See [docs/ROADMAP.md](docs/ROADMAP.md)
+Planned, among others: moving mail between accounts. See [docs/ROADMAP.md](docs/ROADMAP.md)
 for those and the decisions made so far.
 
 ## Installing

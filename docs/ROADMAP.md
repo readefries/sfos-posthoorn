@@ -147,7 +147,15 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   GnuPG 2.4 with its libraries, static, in `/usr/libexec/posthoorn/gnupg`, kept current by a weekly
   workflow that reads GnuPG's signed software list. QMF's crypto plugins use the system's GnuPG, so
   Posthoorn does PGP/MIME itself with this one.
-- Reading: signature status in the reader, decrypting with the passphrase asked in the app,
-  importing a public key from an attachment.
-- Signing: a key per account, chosen in Settings; a switch in the composer.
-- Encrypting to the recipients' keys, and a keys page: list, import, remove.
+- ✓ Reading: signature status in the reader, decrypting with the passphrase asked in the app
+  (kept 10 minutes, in memory), PGP/MIME and inline. A key attached to a mail can be imported,
+  from the status row when the signer's key is missing.
+- ✓ Exact signed parts: QMF keeps a signed part as it was sent only with its crypto plugins, and
+  those store signed mail in IMAP subfolders broken. So Posthoorn fetches the signed part itself,
+  read-only, over the account's own IMAP sign-in, and caches it. Never require the plugins.
+- ✓ Signing: the key for the From address, a switch in the composer (on by default, Settings);
+  optionally with one's public key attached. The signed part is stored as signed, which QMF sends
+  unchanged, and checked to be so before sending.
+- ✓ Encrypting to the recipients' keys and one's own, signed inside; a recipient without a key
+  blocks sending. A keys page: list, import, remove.
+- Later: encrypting the subject (protected headers), exporting one's own key, encrypted drafts.
