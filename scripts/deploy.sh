@@ -28,22 +28,38 @@ else
     distrobox enter sailfish-sdk -- sh -c "$sfdk_build"
 fi
 
+# posthoorn-gnupg, which posthoorn requires: built only when its spec has a version that isn't built
+# yet, and installed only when the phone doesn't have that version.
+gnupg_spec="$repo/gnupg/rpm/posthoorn-gnupg.spec"
+gnupg_version=$(awk '$1 == "%global" && $2 == "gnupg_version" { print $3 }' "$gnupg_spec")
+gnupg_release=$(awk '$1 == "Release:" { print $2 }' "$gnupg_spec")
+gnupg_name="posthoorn-gnupg-$gnupg_version-$gnupg_release"
+gnupg=$(ls "$repo/build-gnupg-${target##*-}"/RPMS/"$gnupg_name".*.rpm 2>/dev/null || true)
+if [ -z "$gnupg" ]; then
+    "$repo/scripts/build-gnupg.sh" "$target"
+    gnupg=$(ls "$repo/build-gnupg-${target##*-}"/RPMS/"$gnupg_name".*.rpm)
+fi
+if ssh "$host" rpm -q "$gnupg_name" >/dev/null 2>&1; then
+    gnupg=
+fi
+
 # posthoorn, and posthoorn-default-mail for those who use it in place of Jolla's Mail.
 rpm=$(ls "$build"/RPMS/posthoorn-[0-9]*.rpm)
 default_mail=$(ls "$build"/RPMS/posthoorn-default-mail-*.rpm)
-scp -q "$rpm" "$default_mail" "$host:"
+scp -q "$rpm" "$default_mail" $gnupg "$host:"
 echo
-echo "Copied $(basename "$rpm") and $(basename "$default_mail") to $host."
+echo "Copied $(basename "$rpm") and $(basename "$default_mail")${gnupg:+ and $(basename "$gnupg")} to $host."
+extra=${gnupg:+ ./$(basename "$gnupg")}
 # Stopping the app afterwards, as a running one keeps the old version.
 stop="pkill -f '^/usr/bin/posthoorn'"
 # With posthoorn-default-mail installed both have to be updated together: it requires the exact
 # same version of posthoorn.
 if ssh "$host" rpm -q posthoorn-default-mail >/dev/null 2>&1; then
     echo "On the phone (posthoorn-default-mail is installed, so both):"
-    echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail"); $stop"
+    echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail")$extra; $stop"
 else
     echo "On the phone:"
-    echo "  devel-su pkcon install-local ./$(basename "$rpm"); $stop"
+    echo "  devel-su pkcon install-local ./$(basename "$rpm")$extra; $stop"
     echo "and, with Jolla's Mail uninstalled, to open mail notifications in Posthoorn:"
-    echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail"); $stop"
+    echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail")$extra; $stop"
 fi

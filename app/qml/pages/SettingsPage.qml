@@ -31,6 +31,17 @@ Page {
             }
 
             SectionHeader {
+                text: qsTr("PGP")
+            }
+
+            ValueButton {
+                label: qsTr("Keys")
+                value: app.pgpKeys.available ? qsTr("%n key(s)", "", app.pgpKeys.keys.length)
+                                             : qsTr("posthoorn-gnupg isn't installed")
+                onClicked: pageStack.push(Qt.resolvedUrl("KeysPage.qml"))
+            }
+
+            SectionHeader {
                 text: qsTr("Unified inbox")
             }
 

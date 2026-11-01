@@ -80,6 +80,19 @@ ApplicationWindow {
         UnifiedMessageListModel { }
     }
 
+    // The PGP keyring, shared by the Keys page and importing keys attached to mail.
+    readonly property PgpKeys pgpKeys: keyring
+
+    PgpKeys {
+        id: keyring
+        onImported: Notices.show(error.length > 0 ? error : qsTr("Imported %n key(s)", "", count),
+                                 error.length > 0 ? Notice.Long : Notice.Short, Notice.Center)
+        onRemoved: {
+            if (error.length > 0)
+                Notices.show(error, Notice.Long, Notice.Center)
+        }
+    }
+
     // Folder ids of an account's virtual folders, used like a real folder's id in the favourites
     // and the saved state. Starred: its starred mail, wherever it is. Snoozed: what's hidden until
     // later, see Snoozes.

@@ -38,10 +38,25 @@ Page {
         messageId: page.messageId
     }
 
+    // Signed or encrypted with OpenPGP: checked right away, decrypted when asked.
+    PgpMessage {
+        id: pgp
+        messageId: page.messageId
+        // PGP/MIME needs all of the mail, signature included.
+        onStateChanged: {
+            if (state === PgpMessage.NeedsContent)
+                message.downloadMessage()
+        }
+    }
+
+    // A decrypted mail's own text, or a clearsigned text without its armor, instead of the mail's.
+    readonly property bool showPgpText: pgp.plainText.length > 0 || pgp.html.length > 0
+    readonly property bool pgpHtml: pgp.html.length > 0 && (!preferTextPart || pgp.plainText.length === 0)
+
     MessageBody {
         id: formatted
-        html: page.useHtml ? page.source : ""
-        plainText: page.useHtml ? "" : page.source
+        html: page.showPgpText ? (page.pgpHtml ? pgp.html : "") : page.useHtml ? page.source : ""
+        plainText: page.showPgpText ? (page.pgpHtml ? "" : pgp.plainText) : page.useHtml ? "" : page.source
         showImages: page.showImages
         textColor: Theme.primaryColor
         linkColor: Theme.highlightColor
@@ -79,8 +94,12 @@ Page {
             app.emailAgent.markMessageAsRead(messageId)
     }
 
+    // Still encrypted: the text is only a notice, and the way to decrypt it is in the header.
+    readonly property bool stillEncrypted: pgp.kind === PgpMessage.Encrypted && !showPgpText
+
     onStatusChanged: {
-        if (status === PageStatus.Active)
+        // Focusing the text scrolls to it, past the header.
+        if (status === PageStatus.Active && !stillEncrypted)
             body.forceActiveFocus()
     }
 
@@ -165,6 +184,11 @@ Page {
         contentHeight: column.height + Theme.paddingLarge
 
         PullDownMenu {
+            MenuItem {
+                visible: pgp.state === PgpMessage.NeedsPassphrase
+                text: qsTr("Decrypt")
+                onClicked: pgpStatus.askPassphrase()
+            }
             MenuItem {
                 visible: message.contentType === EmailMessage.HTML
                 text: page.preferTextPart ? qsTr("Use HTML part") : qsTr("Use text part")
@@ -294,6 +318,12 @@ Page {
                     width: 1
                     height: Theme.paddingMedium
                 }
+            }
+
+            PgpStatus {
+                id: pgpStatus
+                width: column.width
+                pgp: pgp
             }
 
             Repeater {

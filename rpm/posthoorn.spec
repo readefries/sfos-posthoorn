@@ -14,11 +14,14 @@ BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5DBus)
 BuildRequires:  pkgconfig(Qt5Test)
 BuildRequires:  pkgconfig(QmfClient)
+BuildRequires:  pkgconfig(QmfMessageServer)
 BuildRequires:  pkgconfig(sailfishapp) >= 1.0.2
 BuildRequires:  desktop-file-utils
 Requires:       sailfishsilica-qt5 >= 0.10.9
 # The Qt Messaging Framework QML API and its messageserver, shared with the stock Email app.
 Requires:       nemo-qml-plugin-email-qt5
+# PGP, with a current GnuPG of its own (gnupg/).
+Requires:       posthoorn-gnupg >= 2.4
 
 %description
 Email client for Sailfish OS, built on the system's mail framework so it

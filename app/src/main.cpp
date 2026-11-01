@@ -10,6 +10,8 @@
 #include "mailuiservice.h"
 #include "messagebody.h"
 #include "messageflags.h"
+#include "pgpkeys.h"
+#include "pgpmessage.h"
 #include "outgoingmessage.h"
 #include "snoozes.h"
 #include "unifiedmessagelistmodel.h"
@@ -78,6 +80,8 @@ int main(int argc, char *argv[])
 
     qmlRegisterType<MessageBody>("Posthoorn", 1, 0, "MessageBody");
     qmlRegisterType<OutgoingMessage>("Posthoorn", 1, 0, "OutgoingMessage");
+    qmlRegisterType<PgpMessage>("Posthoorn", 1, 0, "PgpMessage");
+    qmlRegisterType<PgpKeys>("Posthoorn", 1, 0, "PgpKeys");
     qmlRegisterType<UnifiedMessageListModel>("Posthoorn", 1, 0, "UnifiedMessageListModel");
     qmlRegisterSingletonType<AppState>("Posthoorn", 1, 0, "AppState",
                                        [](QQmlEngine *, QJSEngine *) -> QObject * {

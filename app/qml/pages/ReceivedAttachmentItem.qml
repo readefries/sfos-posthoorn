@@ -14,6 +14,22 @@ ListItem {
     property EmailMessage mail
     // Open once the download is done.
     property bool openWhenSaved: false
+    // Import into the PGP keyring once the download is done.
+    property bool importWhenSaved: false
+
+    // A PGP key someone sent along.
+    readonly property bool isKey: model.mimeType.toLowerCase() === "application/pgp-keys"
+                                  || (/\.(asc|key|pgp)$/i.test(model.displayName)
+                                      && model.mimeType.toLowerCase() !== "application/pgp-signature")
+    // PGP/MIME's own parts: the signature and the encrypted mail, which are no files for the user.
+    readonly property bool pgpPart: /^application\/pgp-(signature|encrypted)$/.test(model.mimeType.toLowerCase())
+                                    || (model.mimeType.toLowerCase() === "application/octet-stream"
+                                        && model.displayName === "encrypted.asc")
+
+    function importKey() {
+        importWhenSaved = false
+        app.pgpKeys.importFile(decodeURIComponent(model.url.toString().replace(/^file:\/\//, "")))
+    }
 
     readonly property bool saved: model.url.length > 0
     readonly property bool downloading: model.statusInfo === EmailAgent.Queued
@@ -63,9 +79,13 @@ ListItem {
     onSavedChanged: {
         if (saved && openWhenSaved)
             openFile()
+        if (saved && importWhenSaved)
+            importKey()
     }
 
-    contentHeight: Theme.itemSizeMedium
+    visible: !pgpPart
+
+    contentHeight: pgpPart ? 0 : Theme.itemSizeMedium
     onClicked: {
         if (saved)
             openFile()
@@ -77,6 +97,18 @@ ListItem {
         MenuItem {
             text: qsTr("Open")
             onClicked: item.saved ? item.openFile() : item.download(true)
+        }
+        MenuItem {
+            visible: item.isKey
+            text: qsTr("Import key")
+            onClicked: {
+                if (item.saved) {
+                    item.importKey()
+                } else {
+                    item.importWhenSaved = true
+                    item.download(false)
+                }
+            }
         }
         MenuItem {
             visible: !item.saved
