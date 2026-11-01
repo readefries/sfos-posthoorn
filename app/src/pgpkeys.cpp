@@ -103,6 +103,24 @@ QString PgpKeys::signingKeyFor(const QString &address) const
     return QString();
 }
 
+QString PgpKeys::encryptionKeyFor(const QString &address) const
+{
+    if (address.isEmpty())
+        return QString();
+    const QString wanted = QLatin1Char('<') + address.toLower() + QLatin1Char('>');
+    for (const QVariant &entry : m_keys) {
+        const QVariantMap key = entry.toMap();
+        if (!key.value(QStringLiteral("canEncrypt")).toBool() || key.value(QStringLiteral("expired")).toBool()
+                || key.value(QStringLiteral("revoked")).toBool())
+            continue;
+        for (const QString &userId : key.value(QStringLiteral("userIds")).toStringList()) {
+            if (userId.toLower().contains(wanted))
+                return key.value(QStringLiteral("fingerprint")).toString();
+        }
+    }
+    return QString();
+}
+
 void PgpKeys::refresh()
 {
     if (!available())
@@ -146,6 +164,8 @@ void PgpKeys::onPublicListed(GpgJob *job)
             key.insert(QStringLiteral("revoked"), validity == QLatin1String("r"));
             key.insert(QStringLiteral("userIds"), QStringList());
             key.insert(QStringLiteral("secret"), false);
+            // The key's usable capabilities, in capitals: E for encrypting.
+            key.insert(QStringLiteral("canEncrypt"), fields.value(11).contains(QLatin1Char('E')));
         } else if (type == QLatin1String("sub")) {
             inSubkey = true;
         } else if (type == QLatin1String("fpr") && !inSubkey && !key.contains(QStringLiteral("fingerprint"))) {

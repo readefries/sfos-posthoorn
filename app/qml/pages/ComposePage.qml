@@ -35,6 +35,8 @@ Dialog {
     property string forwarded
     // A saved draft to continue: everything above comes from it.
     property int draftId
+    // Encrypt starts switched on, as for a reply to encrypted mail.
+    property bool encryptByDefault
     // Text to start with, from a mailto: link.
     property string bodyText
 
@@ -167,7 +169,7 @@ Dialog {
         return allValid(toField) && allValid(ccField) && allValid(bccField)
     }
 
-    canAccept: hasRecipients && recipientsValid && forwardReady
+    canAccept: hasRecipients && recipientsValid && forwardReady && !encryptSwitch.blocking
 
     function composedBody() {
         var own = body.text.replace(/\s+$/, "")
@@ -198,7 +200,9 @@ Dialog {
         message.keptParts = kept
         message.sign = signSwitch.visible && signSwitch.checked
         message.signingKey = signSwitch.key
-        message.attachKey = AppState.attachPublicKey
+        message.attachKey = message.sign && AppState.attachPublicKey
+        message.encrypt = encryptSwitch.visible && encryptSwitch.checked
+        message.recipientKeys = message.encrypt ? encryptSwitch.keys : []
     }
 
     // Everything that ends up in the mail, to tell whether anything was changed.
@@ -239,8 +243,13 @@ Dialog {
 
     onAcceptBlocked: {
         takeTypedRecipients()
-        if (canAccept)
+        if (canAccept) {
             accept()
+        } else if (encryptSwitch.blocking) {
+            Notices.show(qsTr("Can't encrypt: no key for %1").arg(encryptSwitch.missing.join(", ")),
+                         Notice.Long, Notice.Center)
+            flickable.scrollToTop()
+        }
     }
     onAcceptPendingChanged: {
         if (acceptPending)
@@ -361,6 +370,7 @@ Dialog {
     }
 
     SilicaFlickable {
+        id: flickable
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
 
@@ -496,6 +506,36 @@ Dialog {
                 text: qsTr("Sign")
                 description: qsTr("With your PGP key, so recipients can tell it's from you, unchanged")
                 checked: AppState.signByDefault
+            }
+
+            TextSwitch {
+                id: encryptSwitch
+                // The recipients' addresses and their keys' fingerprints, "" for those without one.
+                readonly property var recipientAddresses: {
+                    dialog.recipientsVersion
+                    return dialog.addresses(toField).concat(dialog.addresses(ccField), dialog.addresses(bccField))
+                }
+                readonly property var keys: {
+                    app.pgpKeys.keys
+                    return recipientAddresses.map(function(address) { return app.pgpKeys.encryptionKeyFor(address) })
+                }
+                readonly property var missing: recipientAddresses.filter(function(address, i) { return keys[i].length === 0 })
+                readonly property bool blocking: visible && checked && missing.length > 0
+                // Only with a key of one's own, for reading the copy in Sent.
+                visible: signSwitch.visible
+                text: qsTr("Encrypt")
+                description: qsTr("Only the recipients can read it; the subject stays readable")
+                checked: dialog.encryptByDefault
+            }
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                visible: encryptSwitch.blocking
+                text: qsTr("No key for %1, so it can't be sent encrypted. Import their key, or switch Encrypt off.")
+                      .arg(encryptSwitch.missing.join(", "))
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.errorColor
             }
 
             SectionHeader {

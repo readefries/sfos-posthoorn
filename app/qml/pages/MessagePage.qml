@@ -146,6 +146,7 @@ Page {
                            subject: prefixed(qsTr("Re: "), /^\s*(re|aw|antw|sv|vs):/i),
                            responseType: all ? EmailMessage.ReplyToAll : EmailMessage.Reply,
                            originalMessageId: page.messageId,
+                           encryptByDefault: pgp.kind === PgpMessage.Encrypted,
                            //: Introduces the quote in a reply. %1 is the date and time, %2 the sender.
                            attribution: qsTr("On %1, %2 wrote:").arg(dateText())
                                         .arg(message.fromDisplayName || message.fromAddress),
@@ -168,6 +169,7 @@ Page {
                            //: Prefix for the subject of a forwarded mail
                            subject: prefixed(qsTr("Fwd: "), /^\s*(fwd?|wg|doorst):/i),
                            responseType: EmailMessage.Forward,
+                           encryptByDefault: pgp.kind === PgpMessage.Encrypted,
                            originalMessageId: page.messageId,
                            forwarded: header.join("\n") + "\n\n" + formatted.plainContent()
                        })

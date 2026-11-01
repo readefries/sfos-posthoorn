@@ -37,13 +37,18 @@ class OutgoingMessage : public QObject
     Q_PROPERTY(QStringList forwardedParts READ forwardedParts WRITE setForwardedParts NOTIFY changed)
     // Attachments of the draft loaded with loadDraft() to keep, as part locations.
     Q_PROPERTY(QStringList keptParts READ keptParts WRITE setKeptParts NOTIFY changed)
-    // Sent signed with PGP/MIME, by the key for the From address; prepareSigned() first.
+    // Sent signed with PGP/MIME, by the key for the From address; prepare() first.
     Q_PROPERTY(bool sign READ sign WRITE setSign NOTIFY changed)
+    // Sent encrypted with PGP/MIME, to recipientKeys and to one's own key (signingKey); signed
+    // inside when sign is set. prepare() first.
+    Q_PROPERTY(bool encrypt READ encrypt WRITE setEncrypt NOTIFY changed)
+    // The fingerprints of the recipients' keys.
+    Q_PROPERTY(QStringList recipientKeys READ recipientKeys WRITE setRecipientKeys NOTIFY changed)
     // The fingerprint of the key to sign with; empty for the one for the From address.
     Q_PROPERTY(QString signingKey READ signingKey WRITE setSigningKey NOTIFY changed)
     // The signing key's public key goes along, as an attachment that's signed too.
     Q_PROPERTY(bool attachKey READ attachKey WRITE setAttachKey NOTIFY changed)
-    // Why the last send(), saveDraft() or prepareSigned() failed.
+    // Why the last send(), saveDraft() or prepare() failed.
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
 
 public:
@@ -73,6 +78,10 @@ public:
     void setKeptParts(const QStringList &locations);
     bool sign() const { return m_sign; }
     void setSign(bool sign);
+    bool encrypt() const { return m_encrypt; }
+    void setEncrypt(bool encrypt);
+    QStringList recipientKeys() const { return m_recipientKeys; }
+    void setRecipientKeys(const QStringList &fingerprints);
     QString signingKey() const { return m_signingKey; }
     void setSigningKey(const QString &fingerprint);
     bool attachKey() const { return m_attachKey; }
@@ -87,9 +96,10 @@ public:
     // The body split into { text, signature, attribution, quote, writtenBelowQuote }.
     Q_INVOKABLE QVariantMap draftParts() const;
 
-    // Builds the message and signs it, with the passphrase of the key when it isn't remembered;
-    // prepared() or prepareFailed() follows. send() then sends what was signed.
-    Q_INVOKABLE void prepareSigned(const QString &passphrase = QString());
+    // Builds the message and signs and/or encrypts it, with the passphrase of one's key when
+    // signing and it isn't remembered; prepared() or prepareFailed() follows. send() then sends
+    // what was made.
+    Q_INVOKABLE void prepare(const QString &passphrase = QString());
 
     // Puts the message in the outbox. Returns its account's id, 0 when it couldn't be stored.
     Q_INVOKABLE int send();
@@ -112,7 +122,7 @@ private:
     bool fail(const QString &error);
     // What gpg is told to sign with: the key's fingerprint, or the From address.
     QString signer() const;
-    void signWith(const QString &passphrase, const QByteArray &publicKey, const QString &fingerprint);
+    void protect(const QString &passphrase, const QByteArray &publicKey, const QString &fingerprint);
 
     QString m_from;
     QStringList m_to;
@@ -128,9 +138,11 @@ private:
     QString m_error;
     QMailMessageId m_draftId;
     bool m_sign = false;
+    bool m_encrypt = false;
+    QStringList m_recipientKeys;
     QString m_signingKey;
     bool m_attachKey = false;
-    // What prepareSigned() made: the message, and its signed part's bytes.
+    // What prepare() made: the message, and its signed part's bytes when only signed.
     QMailMessage m_signedMessage;
     QByteArray m_signedData;
     bool m_prepared = false;

@@ -13,8 +13,8 @@ class GpgJob;
 class PgpKeys : public QObject
 {
     Q_OBJECT
-    // { fingerprint, keyId, name (the first user id), userIds, secret, algorithm, created, expires,
-    // expired, revoked }, one's own first.
+    // { fingerprint, keyId, name (the first user id), userIds, secret, canEncrypt, algorithm,
+    // created, expires, expired, revoked }, one's own first.
     Q_PROPERTY(QVariantList keys READ keys NOTIFY keysChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     // One of the keys is one's own, with its secret key.
@@ -34,6 +34,8 @@ public:
     // The fingerprint of one's own key (with its secret key) for address that can sign, empty
     // for none.
     Q_INVOKABLE QString signingKeyFor(const QString &address) const;
+    // The fingerprint of a key for address that can encrypt, empty for none.
+    Q_INVOKABLE QString encryptionKeyFor(const QString &address) const;
     // Imports the keys in the file at path; imported() tells how it went.
     Q_INVOKABLE void importFile(const QString &path);
     Q_INVOKABLE void remove(const QString &fingerprint);

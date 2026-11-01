@@ -236,6 +236,24 @@ void OutgoingMessage::setAttachKey(bool attach)
     emit changed();
 }
 
+void OutgoingMessage::setEncrypt(bool encrypt)
+{
+    if (encrypt == m_encrypt)
+        return;
+    m_encrypt = encrypt;
+    m_prepared = false;
+    emit changed();
+}
+
+void OutgoingMessage::setRecipientKeys(const QStringList &fingerprints)
+{
+    if (fingerprints == m_recipientKeys)
+        return;
+    m_recipientKeys = fingerprints;
+    m_prepared = false;
+    emit changed();
+}
+
 void OutgoingMessage::setSign(bool sign)
 {
     if (sign == m_sign)
@@ -338,9 +356,9 @@ bool OutgoingMessage::build(QMailMessage *message, QMailMessagePartContainer *co
 int OutgoingMessage::send()
 {
     QMailMessage message;
-    if (m_sign) {
+    if (m_sign || m_encrypt) {
         if (!m_prepared) {
-            fail(tr("The mail wasn't signed"));
+            fail(m_encrypt ? tr("The mail wasn't encrypted") : tr("The mail wasn't signed"));
             return 0;
         }
         message = m_signedMessage;
@@ -356,7 +374,7 @@ int OutgoingMessage::send()
         return 0;
     }
     // The signed part goes out as it was signed only when the store kept it so.
-    if (m_sign) {
+    if (m_sign && !m_encrypt) {
         const QMailMessage stored(message.id());
         if (stored.partCount() < 1 || stored.partAt(0).undecodedData() != m_signedData) {
             QMailStore::instance()->removeMessage(message.id(), QMailStore::NoRemovalRecord);
@@ -393,11 +411,11 @@ int OutgoingMessage::send()
     return int(message.parentAccountId().toULongLong());
 }
 
-void OutgoingMessage::prepareSigned(const QString &passphrase)
+void OutgoingMessage::prepare(const QString &passphrase)
 {
     m_prepared = false;
     if (!m_attachKey) {
-        signWith(passphrase, QByteArray(), QString());
+        protect(passphrase, QByteArray(), QString());
         return;
     }
     // The public key first, to go along in what's signed.
@@ -411,7 +429,7 @@ void OutgoingMessage::prepareSigned(const QString &passphrase)
             emit prepareFailed(false);
             return;
         }
-        signWith(passphrase, job->output(), fingerprint);
+        protect(passphrase, job->output(), fingerprint);
     });
     job->start(QStringList() << QStringLiteral("--armor") << QStringLiteral("--export-options")
                << QStringLiteral("export-minimal") << QStringLiteral("--export") << signer());
@@ -426,12 +444,19 @@ QString OutgoingMessage::signer() const
     return QLatin1Char('<') + (sender.isNull() ? m_from : sender.address()) + QLatin1Char('>');
 }
 
-void OutgoingMessage::signWith(const QString &passphrase, const QByteArray &publicKey,
-                               const QString &fingerprint)
+void OutgoingMessage::protect(const QString &passphrase, const QByteArray &publicKey,
+                              const QString &fingerprint)
 {
     QMailMessage message;
     QMailMessagePart content;
     if (!build(&message, &content)) {
+        emit prepareFailed(false);
+        return;
+    }
+    // Every recipient has to have a key, or it isn't sent at all.
+    if (m_encrypt && (m_recipientKeys.isEmpty() || m_recipientKeys.contains(QString())
+                      || m_recipientKeys.size() != m_to.size() + m_cc.size() + m_bcc.size())) {
+        fail(tr("Not every recipient has a key to encrypt to"));
         emit prepareFailed(false);
         return;
     }
@@ -455,14 +480,15 @@ void OutgoingMessage::signWith(const QString &passphrase, const QByteArray &publ
         content.appendPart(key);
     }
     // Signed as QMF writes it, and then kept so, which QMF sends as it is (as for received mail).
+    // Encrypted, it's what the recipient gets back.
     const QByteArray data = GpgJob::canonical(content.toRfc2822());
 
     const QString cache = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
     QDir().mkpath(cache);
-    QTemporaryFile file(cache + QStringLiteral("/signing-XXXXXX"));
+    QTemporaryFile file(cache + QStringLiteral("/protecting-XXXXXX"));
     file.setAutoRemove(false);
     if (!file.open() || file.write(data) != data.size()) {
-        fail(tr("The mail couldn't be stored for signing"));
+        fail(tr("The mail couldn't be stored for signing or encrypting"));
         emit prepareFailed(false);
         return;
     }
@@ -470,56 +496,104 @@ void OutgoingMessage::signWith(const QString &passphrase, const QByteArray &publ
     const QString path = file.fileName();
 
     // The passphrase on stdin, so the data from a file.
-    const QString given = passphrase.isEmpty() ? GpgJob::passphrase() : passphrase;
+    const QString given = !m_sign ? QString() : passphrase.isEmpty() ? GpgJob::passphrase() : passphrase;
     QStringList arguments;
     QByteArray input;
     if (!given.isEmpty()) {
         arguments << QStringLiteral("--passphrase-fd") << QStringLiteral("0");
         input = given.toUtf8() + '\n';
     }
-    const QString address = message.from().address();
-    arguments << QStringLiteral("--armor") << QStringLiteral("--detach-sign")
-              << QStringLiteral("--digest-algo") << QStringLiteral("SHA256")
-              << QStringLiteral("--local-user") << signer()
-              << QStringLiteral("--output") << QStringLiteral("-") << path;
+    arguments << QStringLiteral("--armor");
+    if (m_encrypt) {
+        // To the recipients' keys, and one's own, so the copy in Sent can be read. Their keys
+        // were chosen in the composer, certified or not.
+        arguments << QStringLiteral("--encrypt") << QStringLiteral("--trust-model") << QStringLiteral("always");
+        QStringList recipients = m_recipientKeys;
+        recipients << signer();
+        recipients.removeDuplicates();
+        for (const QString &recipient : recipients)
+            arguments << QStringLiteral("--recipient") << recipient;
+        // Signed inside.
+        if (m_sign)
+            arguments << QStringLiteral("--sign");
+    } else {
+        arguments << QStringLiteral("--detach-sign");
+    }
+    if (m_sign) {
+        arguments << QStringLiteral("--digest-algo") << QStringLiteral("SHA256")
+                  << QStringLiteral("--local-user") << signer();
+    }
+    arguments << QStringLiteral("--output") << QStringLiteral("-") << path;
 
+    const QString address = message.from().address();
     GpgJob *job = new GpgJob(this);
     connect(job, &GpgJob::finished, this, [this, job, message, content, data, path, given, address]() mutable {
         job->deleteLater();
         QFile::remove(path);
-        if (job->exitCode() != 0 || !job->hasStatus(QStringLiteral("SIG_CREATED"))) {
-            qWarning() << "gpg --detach-sign:" << job->status() << job->errors();
-            if (job->hasStatus(QStringLiteral("INV_SGNR")) || job->hasStatus(QStringLiteral("NO_SECKEY"))) {
+        const bool done = job->exitCode() == 0
+                && (!m_sign || job->hasStatus(QStringLiteral("SIG_CREATED")))
+                && (!m_encrypt || job->hasStatus(QStringLiteral("END_ENCRYPTION")));
+        if (!done) {
+            qWarning() << "gpg signing/encrypting:" << job->status() << job->errors();
+            if (job->hasStatus(QStringLiteral("INV_RECP"))) {
+                fail(tr("A recipient's key can't be used for encrypting"));
+                emit prepareFailed(false);
+            } else if (job->hasStatus(QStringLiteral("INV_SGNR")) || job->hasStatus(QStringLiteral("NO_SECKEY"))) {
                 fail(tr("None of your keys is for %1").arg(address));
                 emit prepareFailed(false);
-            } else {
+            } else if (m_sign) {
                 fail(given.isEmpty() ? QString() : tr("That passphrase didn't work"));
                 emit prepareFailed(true);
+            } else {
+                fail(tr("The mail couldn't be encrypted"));
+                emit prepareFailed(false);
             }
             return;
         }
         if (!given.isEmpty())
             GpgJob::rememberPassphrase(given);
 
-        QMailMessageContentType type("application/pgp-signature");
-        type.setName("signature.asc");
-        QMailMessageContentDisposition disposition(QMailMessageContentDisposition::Attachment);
-        disposition.setFilename("signature.asc");
-        QMailMessagePart signature = QMailMessagePart::fromData(job->output(), disposition, type,
-                                                                QMailMessageBody::SevenBit);
-        signature.setContentDescription(QStringLiteral("OpenPGP digital signature"));
+        if (m_encrypt) {
+            // RFC 3156: a version part, then the ciphertext.
+            QMailMessageContentType versionType("application/pgp-encrypted");
+            QMailMessagePart version = QMailMessagePart::fromData(QByteArray("Version: 1\r\n"),
+                                                                  QMailMessageContentDisposition(),
+                                                                  versionType, QMailMessageBody::SevenBit);
+            version.setContentDescription(QStringLiteral("PGP/MIME version identification"));
+            QMailMessageContentType type("application/octet-stream");
+            type.setName("encrypted.asc");
+            QMailMessageContentDisposition disposition(QMailMessageContentDisposition::Inline);
+            disposition.setFilename("encrypted.asc");
+            QMailMessagePart encrypted = QMailMessagePart::fromData(job->output(), disposition, type,
+                                                                    QMailMessageBody::SevenBit);
+            encrypted.setContentDescription(QStringLiteral("OpenPGP encrypted message"));
+            message.setMultipartType(QMailMessagePartContainer::MultipartEncrypted,
+                                     QList<QMailMessageHeaderField::ParameterType>()
+                                     << qMakePair(QByteArray("protocol"), QByteArray("application/pgp-encrypted")));
+            message.appendPart(version);
+            message.appendPart(encrypted);
+            m_signedData.clear();
+        } else {
+            QMailMessageContentType type("application/pgp-signature");
+            type.setName("signature.asc");
+            QMailMessageContentDisposition disposition(QMailMessageContentDisposition::Attachment);
+            disposition.setFilename("signature.asc");
+            QMailMessagePart signature = QMailMessagePart::fromData(job->output(), disposition, type,
+                                                                    QMailMessageBody::SevenBit);
+            signature.setContentDescription(QStringLiteral("OpenPGP digital signature"));
 
-        content.setUndecodedData(data);
-        const QStringList created = job->statusArguments(QStringLiteral("SIG_CREATED"));
-        message.setMultipartType(QMailMessagePartContainer::MultipartSigned,
-                                 QList<QMailMessageHeaderField::ParameterType>()
-                                 << qMakePair(QByteArray("protocol"), QByteArray("application/pgp-signature"))
-                                 << qMakePair(QByteArray("micalg"), micalg(created.value(2))));
-        message.appendPart(content);
-        message.appendPart(signature);
+            content.setUndecodedData(data);
+            const QStringList created = job->statusArguments(QStringLiteral("SIG_CREATED"));
+            message.setMultipartType(QMailMessagePartContainer::MultipartSigned,
+                                     QList<QMailMessageHeaderField::ParameterType>()
+                                     << qMakePair(QByteArray("protocol"), QByteArray("application/pgp-signature"))
+                                     << qMakePair(QByteArray("micalg"), micalg(created.value(2))));
+            message.appendPart(content);
+            message.appendPart(signature);
+            m_signedData = data;
+        }
         message.setSize(message.indicativeSize() * 1024);
         m_signedMessage = message;
-        m_signedData = data;
         m_prepared = true;
         emit prepared();
     });
