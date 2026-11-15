@@ -121,6 +121,9 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   above (default) or below the quote, or without it.
 - ✓ Replying to a selection quotes only that.
 - ✓ The account's signature, drafts when leaving with text, a notice when sending finished.
+- ✓ Signatures of one's own (`Signatures`, signatures.ini): plain text, a choice per sending
+  address (the account's, none, or one of them) and per mail in the composer. A continued draft
+  keeps its signature, recognised as one of these or the account's when it is.
 - ✓ Attachments: adding files with the content picker, sending the original's along when
   forwarding (downloaded into the mail store first, not into Downloads), removing them again.
 - ✓ Opening and saving the attachments of received mail: listed in the reader, downloaded on a
