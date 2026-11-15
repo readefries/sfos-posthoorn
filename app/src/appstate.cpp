@@ -23,6 +23,40 @@ AppState::AppState(QObject *parent)
     m_conversations = m_settings.value(QStringLiteral("lists/conversations"), true).toBool();
     m_signByDefault = m_settings.value(QStringLiteral("pgp/signByDefault"), true).toBool();
     m_attachPublicKey = m_settings.value(QStringLiteral("pgp/attachPublicKey"), false).toBool();
+    m_sortOrder = qBound(0, m_settings.value(QStringLiteral("lists/sortOrder"), 0).toInt(), 4);
+    m_starredFirst = m_settings.value(QStringLiteral("lists/starredFirst"), false).toBool();
+    m_unreadFirst = m_settings.value(QStringLiteral("lists/unreadFirst"), false).toBool();
+}
+
+void AppState::setSortOrder(int order)
+{
+    order = qBound(0, order, 4);
+    if (order == m_sortOrder)
+        return;
+    m_sortOrder = order;
+    m_settings.setValue(QStringLiteral("lists/sortOrder"), order);
+    m_settings.sync();
+    emit sortOrderChanged();
+}
+
+void AppState::setStarredFirst(bool first)
+{
+    if (first == m_starredFirst)
+        return;
+    m_starredFirst = first;
+    m_settings.setValue(QStringLiteral("lists/starredFirst"), first);
+    m_settings.sync();
+    emit starredFirstChanged();
+}
+
+void AppState::setUnreadFirst(bool first)
+{
+    if (first == m_unreadFirst)
+        return;
+    m_unreadFirst = first;
+    m_settings.setValue(QStringLiteral("lists/unreadFirst"), first);
+    m_settings.sync();
+    emit unreadFirstChanged();
 }
 
 void AppState::setConversations(bool conversations)

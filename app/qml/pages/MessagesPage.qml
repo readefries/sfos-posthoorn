@@ -50,6 +50,10 @@ Page {
         folderIds: page.searching || page.virtualFolder || page.conversation ? []
                  : page.unified ? app.unifiedFolderIds : [page.folderId]
         threaded: AppState.conversations && !page.searching && !page.virtualFolder && !page.conversation
+        // A conversation's own mail stays in the order it was written.
+        sortOrder: page.conversation ? UnifiedMessageListModel.ByDate : AppState.sortOrder
+        starredFirst: AppState.starredFirst && !page.conversation
+        unreadFirst: AppState.unreadFirst && !page.conversation
         // Snoozed mail is out of sight until it's time.
         hiddenIds: Snoozes.messageIds
         search: page.conversation ? { "thread": page.threadId }
@@ -217,13 +221,48 @@ Page {
 
             // A folder's title opens the account's other folders.
             BackgroundItem {
+                id: headerArea
                 width: parent.width
                 height: pageHeader.height
-                enabled: page.canSwitchFolder
-                onClicked: page.switchFolder()
+                // Not disabled when the folder can't be switched: that would disable the order too.
+                highlighted: down && page.canSwitchFolder
+                onClicked: {
+                    if (page.canSwitchFolder)
+                        page.switchFolder()
+                }
+
+                // The order of the list, at the top left: newest first, by sender or largest
+                // first, for all lists (AppState.sortOrder).
+                BackgroundItem {
+                    id: sortButton
+
+                    readonly property var names: [qsTr("Date"), qsTr("A → Z"), qsTr("Size"), qsTr("Oldest"), qsTr("Z → A")]
+
+                    visible: !page.selecting && !page.conversation
+                    // Above the page header, which spans the width.
+                    z: 1
+                    x: Theme.horizontalPageMargin - Theme.paddingSmall
+                    // On the line of the description (the count), below the title: clear of the
+                    // page stack's indicator at the top left.
+                    y: pageHeader.topMargin + pageHeader.titleHeight - Theme.paddingSmall
+                    width: sortLabel.width + 2 * Theme.paddingSmall
+                    height: sortLabel.height + 2 * Theme.paddingSmall
+                    onClicked: pageStack.push(Qt.resolvedUrl("SortPage.qml"))
+
+                    Label {
+                        id: sortLabel
+                        anchors.centerIn: parent
+                        text: sortButton.names[AppState.sortOrder] + " ▾"
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: sortButton.highlighted ? Theme.highlightColor : Theme.secondaryHighlightColor
+                    }
+                }
 
                 PageHeader {
                     id: pageHeader
+                    // Clear of the order at the left.
+                    leftMargin: sortButton.visible ? sortButton.x + sortButton.width + Theme.paddingLarge
+                                                   : Theme.horizontalPageMargin
                     // See AccountsPage.
                     page: list.parent
                     title: page.selecting ? qsTr("%n selected", "", messages.selectedMessageCount)
@@ -341,6 +380,18 @@ Page {
                 onClicked: page.stopSelecting()
             }
 
+            MenuItem {
+                visible: !page.selecting && messages.unreadCount > 0
+                text: qsTr("Mark all as read")
+                onClicked: {
+                    var ids = messages.unreadMessageIds()
+                    remorse.execute(qsTr("Marking %n message(s) as read", "", ids.length), function() {
+                        for (var i = 0; i < ids.length; ++i)
+                            app.emailAgent.markMessageAsRead(ids[i])
+                    })
+                }
+            }
+
             // Sync is the closest to the finger.
             MenuItem {
                 readonly property bool favourite: {
@@ -402,10 +453,26 @@ Page {
                                        : qsTr("Pull down to sync")
         }
 
+        // Following the order: days, senders, or none by size; the starred ones on top as one.
         section {
-            property: "timeSection"
+            property: messages.sortOrder === UnifiedMessageListModel.BySize && !messages.starredFirst
+                      && !messages.unreadFirst ? "" : "sortSection"
             delegate: SectionHeader {
-                text: Format.formatDate(new Date(section), Formatter.TimepointSectionRelative)
+                text: {
+                    if (section === "starred")
+                        return qsTr("Starred")
+                    if (section === "unread")
+                        return qsTr("Unread")
+                    if (messages.sortOrder !== UnifiedMessageListModel.ByDate
+                            && messages.sortOrder !== UnifiedMessageListModel.OldestFirst)
+                        return section
+                    // "yyyy-MM-dd", as a local date.
+                    var parts = section.split("-")
+                    if (parts.length !== 3)
+                        return section
+                    return Format.formatDate(new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])),
+                                             Formatter.TimepointSectionRelative)
+                }
             }
         }
 
@@ -513,6 +580,13 @@ Page {
                 }
             }
 
+            // Starred mail stands out from the rest, read or unread.
+            Rectangle {
+                visible: model.starred && !item.highlighted
+                anchors.fill: parent
+                color: Theme.rgba(Theme.highlightBackgroundColor, 0.15)
+            }
+
             // Unread marker.
             Rectangle {
                 visible: !model.readStatus
@@ -560,7 +634,8 @@ Page {
                             verticalCenter: time.verticalCenter
                         }
                         source: "image://theme/icon-s-favorite"
-                        highlighted: item.highlighted
+                        // In the highlight colour, like the background behind it.
+                        highlighted: true
                     }
                     Label {
                         id: time

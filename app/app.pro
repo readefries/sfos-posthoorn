@@ -69,5 +69,6 @@ DISTFILES += \
     qml/pages/ReceivedAttachmentItem.qml \
     qml/pages/SettingsPage.qml \
     qml/pages/SnoozePage.qml \
+    qml/pages/SortPage.qml \
     qml/pages/VirtualFolderItem.qml \
     qml/pages/UnifiedFoldersPage.qml
