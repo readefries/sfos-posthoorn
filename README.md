@@ -64,6 +64,7 @@ and sending are done by the messageserver. It can be used next to Jolla's Mail, 
 - The cover shows how much is unread in the unified inbox and the newest unread mails, with New
   mail and Sync buttons.
 - With `posthoorn-default-mail`, new-mail notifications and `mailto:` links open Posthoorn.
+- In English and French; see [Translating](#translating).
 
 Planned, among others: moving mail between accounts. See [docs/ROADMAP.md](docs/ROADMAP.md)
 for those and the decisions made so far.
@@ -84,6 +85,7 @@ database, which only Privileged apps can open. It's meant for SailfishOS:Chum.
 | `core/` | Static library without UI, with unit tests: reducing HTML and plain text to structure (`mailcontent`), cleaning links (`linkcleaner`), `format=flowed` (`flowedtext`), mail addresses, splitting drafts (`maildraft`) and recognising archive folders. Qt Core only. |
 | `app/src/` | Glue to QMF and QML: the message list model (folders, unified inbox, search), building outgoing mail, starring, archive folders, saved state, and `MailUiService`, the `com.jolla.email.ui` D-Bus service. |
 | `app/qml/` | The Silica UI. |
+| `app/translations/` | `posthoorn.ts`, the texts to translate (made by the build), and a `posthoorn-<language>.ts` per translation. |
 | `app/defaultmail/` | The files of `posthoorn-default-mail`: the D-Bus service file, the sailjail profile allowing the name, and the `mailto:` handler. |
 | `tests/` | Qt Test suite for `core`, run by the RPM build's `%check`. |
 | `gnupg/` | `posthoorn-gnupg`, a current GnuPG for Posthoorn alone (see below): its spec, the pinned sums of its sources, and GnuPG's release keys. |
@@ -164,6 +166,14 @@ It requires the same version of `posthoorn`, so the two are updated together.
 Removing Jolla's Mail switches off the mail accounts: switch them on again in Settings → Accounts.
 A Sailfish OS upgrade may want Jolla's Mail back; remove `posthoorn-default-mail` for the upgrade
 and install it again afterwards. To go back: remove `posthoorn-default-mail`, install `jolla-email`.
+
+## Translating
+
+The texts are `qsTr()` in `app/qml` and `tr()` in `app/src`. The build collects them in
+`app/translations/posthoorn.ts`. For a new language, copy that file to
+`app/translations/posthoorn-<language>.ts` (`de`, `pt_BR`, …), add it to `TRANSLATIONS` in
+`app/app.pro`, and translate it, for instance with Qt Linguist. Posthoorn uses the phone's language
+when there's a translation for it.
 
 ## License
 
