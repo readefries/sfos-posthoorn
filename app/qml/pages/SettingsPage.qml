@@ -31,6 +31,40 @@ Page {
             }
 
             SectionHeader {
+                text: qsTr("Notifications")
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                text: AppState.notifyFilterInstalled
+                      ? qsTr("New mail of the accounts switched off here comes in as before, without a notification.")
+                      : qsTr("Switching off an account's notifications needs the posthoorn-notify-filter package.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.secondaryHighlightColor
+            }
+
+            Repeater {
+                model: app.accounts
+
+                TextSwitch {
+                    readonly property int accountId: model.mailAccountId
+
+                    enabled: AppState.notifyFilterInstalled
+                    text: model.displayName
+                    description: model.emailAddress
+                    checked: {
+                        AppState.mutedAccounts
+                        return !AppState.isMuted(accountId)
+                    }
+                    // Not onCheckedChanged: the binding above sets checked too.
+                    automaticCheck: false
+                    onClicked: AppState.setMuted(accountId, checked)
+                }
+            }
+
+            SectionHeader {
                 text: qsTr("PGP")
             }
 

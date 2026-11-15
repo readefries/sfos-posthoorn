@@ -107,6 +107,11 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   com.jolla.email.ui, so the system's new-mail notifications (from qmf-notifications-plugin) and
   mailto: links open it. Its sailjail profile allows the name; it conflicts with jolla-email.
   Removing jolla-email switches off the mail accounts, which then need switching on again.
+- ✓ Notifications per account, with the opt-in `posthoorn-notify-filter` package: a messageserver
+  plugin sets `NoNotification` on new mail of the accounts switched off in Settings, before the
+  notifications plugin (qmf-notifications-plugin) sees it. Its key, "mutedaccounts", sorts before
+  "notifications", which decides the order the messageserver starts them in; the other way round,
+  the notifications plugin would still drop the mail on its status change.
 - Checking for new mail on a schedule: Settings → Accounts already does this per account, peak
   hours included (Buteo's sync schedule, run by msyncd even with the app closed). Posthoorn's
   Settings could show each account's schedule and open that page.

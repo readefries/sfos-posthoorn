@@ -41,6 +41,17 @@ them on again in Settings → Accounts. A Sailfish OS upgrade may want
 Jolla's Mail back; remove this package for the upgrade and install it
 again afterwards.
 
+%package notify-filter
+Summary:    Mail accounts without new-mail notifications, chosen in Posthoorn
+Requires:   %{name} = %{version}-%{release}
+
+%description notify-filter
+A plugin for the system's mail service (QMF's messageserver): new mail of
+the accounts switched off under Settings → Notifications in Posthoorn is
+announced by no notification. The mail itself syncs as before. The
+messageserver loads it when it starts: restart it once after installing,
+with systemctl --user restart messageserver5 (or restart the phone).
+
 %prep
 %autosetup -n %{name}-%{version}
 
@@ -62,6 +73,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}-mailto.deskto
 %{_datadir}/%{name}
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/*/apps/%{name}.png
+
+%files notify-filter
+%{_libdir}/qt5/plugins/messagingframework/messageserverplugins/libposthoornmutedaccounts.so
 
 %files default-mail
 %{_datadir}/dbus-1/services/com.jolla.email.ui.service
