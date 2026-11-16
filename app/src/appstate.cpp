@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "appstate.h"
 
+#include <QFile>
+#include <QLibraryInfo>
 #include <QStandardPaths>
 
 QString AppState::fileName()
@@ -23,6 +25,37 @@ AppState::AppState(QObject *parent)
     m_conversations = m_settings.value(QStringLiteral("lists/conversations"), true).toBool();
     m_signByDefault = m_settings.value(QStringLiteral("pgp/signByDefault"), true).toBool();
     m_attachPublicKey = m_settings.value(QStringLiteral("pgp/attachPublicKey"), false).toBool();
+    m_mutedAccounts = m_settings.value(QStringLiteral("notifications/mutedAccounts")).toStringList();
+    m_mutedAccounts.removeAll(QString());
+}
+
+bool AppState::notifyFilterInstalled() const
+{
+    return QFile::exists(QLibraryInfo::location(QLibraryInfo::PluginsPath)
+                         + QStringLiteral("/messagingframework/messageserverplugins/libposthoornmutedaccounts.so"));
+}
+
+bool AppState::isMuted(int accountId) const
+{
+    return m_mutedAccounts.contains(QString::number(accountId));
+}
+
+void AppState::setMuted(int accountId, bool muted)
+{
+    const QString entry = QString::number(accountId);
+    if (accountId <= 0 || muted == m_mutedAccounts.contains(entry))
+        return;
+    if (muted)
+        m_mutedAccounts.append(entry);
+    else
+        m_mutedAccounts.removeAll(entry);
+    if (m_mutedAccounts.isEmpty())
+        m_settings.remove(QStringLiteral("notifications/mutedAccounts"));
+    else
+        m_settings.setValue(QStringLiteral("notifications/mutedAccounts"), m_mutedAccounts);
+    // Right away: the messageserver reads it when the next mail comes in.
+    m_settings.sync();
+    emit mutedAccountsChanged();
 }
 
 void AppState::setConversations(bool conversations)
