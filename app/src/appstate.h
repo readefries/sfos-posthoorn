@@ -31,6 +31,11 @@ class AppState : public QObject
     Q_PROPERTY(bool signByDefault READ signByDefault WRITE setSignByDefault NOTIFY signByDefaultChanged)
     // Signed mail carries one's public key as an attachment; off unless switched on.
     Q_PROPERTY(bool attachPublicKey READ attachPublicKey WRITE setAttachPublicKey NOTIFY attachPublicKeyChanged)
+    // Accounts whose new mail is announced by no notification, as account ids. The messageserver
+    // reads them too, with the posthoorn-notify-filter plugin (notifyfilter/).
+    Q_PROPERTY(QStringList mutedAccounts READ mutedAccounts NOTIFY mutedAccountsChanged)
+    // Whether that plugin is installed: without it, muting an account does nothing.
+    Q_PROPERTY(bool notifyFilterInstalled READ notifyFilterInstalled CONSTANT)
 
 public:
     explicit AppState(QObject *parent = nullptr);
@@ -50,6 +55,8 @@ public:
     void setSignByDefault(bool sign);
     bool attachPublicKey() const { return m_attachPublicKey; }
     void setAttachPublicKey(bool attach);
+    QStringList mutedAccounts() const { return m_mutedAccounts; }
+    bool notifyFilterInstalled() const;
 
     Q_INVOKABLE void save(const QString &page, int accountId = 0, int folderId = 0);
     Q_INVOKABLE void setUnifiedFolders(const QStringList &folders);
@@ -57,6 +64,8 @@ public:
     Q_INVOKABLE void resetUnifiedFolders();
     Q_INVOKABLE bool isFavourite(int accountId, int folderId) const;
     Q_INVOKABLE void setFavourite(int accountId, int folderId, bool favourite);
+    Q_INVOKABLE bool isMuted(int accountId) const;
+    Q_INVOKABLE void setMuted(int accountId, bool muted);
 
 signals:
     void changed();
@@ -65,6 +74,7 @@ signals:
     void conversationsChanged();
     void signByDefaultChanged();
     void attachPublicKeyChanged();
+    void mutedAccountsChanged();
 
 private:
     QSettings m_settings;
@@ -77,6 +87,7 @@ private:
     bool m_conversations = true;
     bool m_signByDefault = true;
     bool m_attachPublicKey = false;
+    QStringList m_mutedAccounts;
 };
 
 #endif // APPSTATE_H

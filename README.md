@@ -65,6 +65,8 @@ and sending are done by the messageserver. It can be used next to Jolla's Mail, 
   mail and Sync buttons.
 - With `posthoorn-default-mail`, new-mail notifications and `mailto:` links open Posthoorn.
 - In English and French; see [Translating](#translating).
+- With `posthoorn-notify-filter`, accounts can be kept quiet: their new mail comes in as before,
+  without a notification (see [Notifications per account](#notifications-per-account)).
 
 Planned, among others: moving mail between accounts. See [docs/ROADMAP.md](docs/ROADMAP.md)
 for those and the decisions made so far.
@@ -86,6 +88,7 @@ database, which only Privileged apps can open. It's meant for SailfishOS:Chum.
 | `app/src/` | Glue to QMF and QML: the message list model (folders, unified inbox, search), building outgoing mail, starring, archive folders, saved state, and `MailUiService`, the `com.jolla.email.ui` D-Bus service. |
 | `app/qml/` | The Silica UI. |
 | `app/translations/` | `posthoorn.ts`, the texts to translate (made by the build), and a `posthoorn-<language>.ts` per translation. |
+| `notifyfilter/` | `posthoorn-notify-filter`, the messageserver plugin that keeps the accounts switched off in Settings → Notifications quiet. |
 | `app/defaultmail/` | The files of `posthoorn-default-mail`: the D-Bus service file, the sailjail profile allowing the name, and the `mailto:` handler. |
 | `tests/` | Qt Test suite for `core`, run by the RPM build's `%check`. |
 | `gnupg/` | `posthoorn-gnupg`, a current GnuPG for Posthoorn alone (see below): its spec, the pinned sums of its sources, and GnuPG's release keys. |
@@ -174,6 +177,19 @@ The texts are `qsTr()` in `app/qml` and `tr()` in `app/src`. The build collects 
 `app/translations/posthoorn-<language>.ts` (`de`, `pt_BR`, …), add it to `TRANSLATIONS` in
 `app/app.pro`, and translate it, for instance with Qt Linguist. Posthoorn uses the phone's language
 when there's a translation for it.
+## Notifications per account
+
+New-mail notifications aren't the app's: the system's mail service (QMF's messageserver) shows
+them, through its notifications plugin, also when Posthoorn isn't running. The
+`posthoorn-notify-filter` package adds a plugin to the messageserver which marks new mail of the
+accounts switched off under Settings → Notifications as not to be announced (QMF's
+`NoNotification`), before the notifications plugin sees it. Nothing else about the mail changes.
+The messageserver loads plugins when it starts, so after installing:
+
+    devel-su pkcon install-local ./posthoorn-notify-filter-<version>-1.aarch64.rpm
+    systemctl --user restart messageserver5
+
+Like `posthoorn-default-mail`, it requires the same version of `posthoorn`.
 
 ## License
 
