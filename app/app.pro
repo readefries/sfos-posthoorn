@@ -22,6 +22,7 @@ HEADERS += \
     src/pgpkeys.h \
     src/pgpmessage.h \
     src/outgoingmessage.h \
+    src/signatures.h \
     src/snoozes.h \
     src/unifiedmessagelistmodel.h
 SOURCES += \
@@ -35,6 +36,7 @@ SOURCES += \
     src/outgoingmessage.cpp \
     src/pgpkeys.cpp \
     src/pgpmessage.cpp \
+    src/signatures.cpp \
     src/snoozes.cpp \
     src/unifiedmessagelistmodel.cpp
 
@@ -68,6 +70,8 @@ DISTFILES += \
     qml/pages/PgpStatus.qml \
     qml/pages/ReceivedAttachmentItem.qml \
     qml/pages/SettingsPage.qml \
+    qml/pages/SignatureDialog.qml \
+    qml/pages/SignaturesPage.qml \
     qml/pages/SnoozePage.qml \
     qml/pages/VirtualFolderItem.qml \
     qml/pages/UnifiedFoldersPage.qml

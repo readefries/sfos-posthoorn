@@ -109,8 +109,65 @@ Dialog {
     }
 
     readonly property int accountId: identities.accountId(fromBox.currentIndex)
-    readonly property string signature: accountId > 0 && app.accounts.appendSignature(accountId)
-                                        ? app.accounts.signature(accountId) : ""
+    // The signature set for the account in Settings → Accounts, when it's switched on there.
+    readonly property string accountSignature: accountId > 0 && app.accounts.appendSignature(accountId)
+                                               ? app.accounts.signature(accountId) : ""
+    // "account", "none", "draft" or the id of one of Posthoorn's own signatures (Signatures).
+    property string signatureChoice: "account"
+    // Chosen for this mail, so changing From doesn't change it any more.
+    property bool signaturePicked: false
+    // A continued draft's signature, when it's none of the others.
+    property string draftSignature
+    readonly property string signature: {
+        Signatures.revision
+        if (signatureChoice === "none")
+            return ""
+        if (signatureChoice === "draft")
+            return draftSignature
+        if (signatureChoice === "account")
+            return accountSignature
+        return Signatures.text(signatureChoice)
+    }
+    readonly property var signatureChoices: {
+        Signatures.revision
+        var list = [{ id: "none", name: qsTr("No signature") }]
+        // Without one, "account" means none: shown as No signature.
+        if (accountSignature.length > 0)
+            list.push({ id: "account", name: qsTr("The account's signature") })
+        if (draftSignature.length > 0)
+            list.push({ id: "draft", name: qsTr("The draft's signature") })
+        var own = Signatures.list
+        for (var i = 0; i < own.length; ++i)
+            list.push({ id: own[i].id, name: own[i].name })
+        return list
+    }
+
+    // The From address's signature, unless one was chosen for this mail.
+    function pickDefaultSignature() {
+        if (!signaturePicked)
+            signatureChoice = Signatures.choiceFor(fromBox.value)
+    }
+
+    // Which signature a continued draft has: one of one's own, the account's, none, or its own.
+    function takeDraftSignature(text, address) {
+        signaturePicked = true
+        if (text.length === 0) {
+            signatureChoice = "none"
+            return
+        }
+        var own = Signatures.find(text)
+        if (own.length > 0) {
+            signatureChoice = own
+            return
+        }
+        var account = identities.accountId(identities.indexFromAddress(address))
+        if (account > 0 && app.accounts.signature(account).trim() === text.trim()) {
+            signatureChoice = "account"
+            return
+        }
+        draftSignature = text
+        signatureChoice = "draft"
+    }
 
     // The recipient fields suggest contacts but only keep addresses, so names are looked up again
     // when sending: those of the mail replied to, or else the contact's.
@@ -233,6 +290,7 @@ Dialog {
         originalMessageId = outgoing.originalMessageId
         var parts = outgoing.draftParts()
         body.text = parts.text
+        takeDraftSignature(parts.signature, outgoing.from)
         attribution = parts.attribution
         quote = parts.quote
         writeBelowQuote = parts.writtenBelowQuote
@@ -287,6 +345,7 @@ Dialog {
         var index = identities.indexFromAddress(from)
         if (index >= 0)
             fromBox.currentIndex = index
+        pickDefaultSignature()
         rememberNames(to)
         rememberNames(cc)
         rememberNames(bcc)
@@ -434,6 +493,7 @@ Dialog {
                 id: fromBox
                 label: qsTr("From")
                 enabled: identities.numberOfAddresses > 1
+                onValueChanged: dialog.pickDefaultSignature()
                 menu: ContextMenu {
                     Repeater {
                         model: identities
@@ -598,6 +658,44 @@ Dialog {
                 text: dialog.bodyText
                 placeholderText: qsTr("Message")
                 labelVisible: false
+            }
+
+            ComboBox {
+                id: signatureBox
+
+                // Set rather than bound: choosing from the menu sets it too.
+                function update() {
+                    for (var i = 0; i < dialog.signatureChoices.length; ++i) {
+                        if (dialog.signatureChoices[i].id === dialog.signatureChoice) {
+                            currentIndex = i
+                            return
+                        }
+                    }
+                    currentIndex = 0
+                }
+
+                width: parent.width
+                label: qsTr("Signature")
+                visible: dialog.signatureChoices.length > 1
+                menu: ContextMenu {
+                    Repeater {
+                        model: dialog.signatureChoices
+                        MenuItem {
+                            text: modelData.name
+                            onClicked: {
+                                dialog.signaturePicked = true
+                                dialog.signatureChoice = modelData.id
+                            }
+                        }
+                    }
+                }
+                Component.onCompleted: update()
+
+                Connections {
+                    target: dialog
+                    onSignatureChoiceChanged: signatureBox.update()
+                    onSignatureChoicesChanged: signatureBox.update()
+                }
             }
 
             Label {

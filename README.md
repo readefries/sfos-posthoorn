@@ -43,8 +43,10 @@ and sending are done by the messageserver. It can be used next to Jolla's Mail, 
 **Writing**
 
 - New mail, reply, reply all and forward, from any of the accounts' addresses and aliases, with
-  recipient suggestions from Contacts. Quotes above or below the reply, or none; the account's
-  signature; attachments, also the original's when forwarding.
+  recipient suggestions from Contacts. Quotes above or below the reply, or none; attachments,
+  also the original's when forwarding.
+- Signatures: the account's (from Settings → Accounts) or signatures of one's own, kept in
+  Posthoorn, with one chosen per sending address and changeable per mail.
 - Drafts are saved when leaving and can be continued. Mail goes out as `format=flowed` plain text.
 - Sending can be undone for a few seconds; the mail then opens in the composer again.
 

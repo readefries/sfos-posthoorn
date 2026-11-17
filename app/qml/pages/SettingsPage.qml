@@ -31,6 +31,17 @@ Page {
             }
 
             SectionHeader {
+                text: qsTr("Writing")
+            }
+
+            ValueButton {
+                label: qsTr("Signatures")
+                value: Signatures.list.length > 0 ? qsTr("%n signature(s)", "", Signatures.list.length)
+                                                  : qsTr("The accounts' signatures")
+                onClicked: pageStack.push(Qt.resolvedUrl("SignaturesPage.qml"))
+            }
+
+            SectionHeader {
                 text: qsTr("Notifications")
             }
 
