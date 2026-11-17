@@ -452,7 +452,7 @@
         <translation>Retirer</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+24"/>
         <source>Your key</source>
         <translation>Votre clé</translation>
     </message>
@@ -878,7 +878,7 @@
         <translation>Supprimer</translation>
     </message>
     <message numerus="yes">
-        <location line="+139"/>
+        <location line="+141"/>
         <source>Deleting %n message(s)</source>
         <translation>
             <numerusform>Suppression de %n message</numerusform>
@@ -1571,7 +1571,7 @@
         <translation type="unfinished">Supprimer</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+42"/>
         <source>Per address</source>
         <translation type="unfinished"></translation>
     </message>
