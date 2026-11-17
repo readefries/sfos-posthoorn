@@ -10,7 +10,9 @@ packagesExist(sailfishapp) {
 }
 
 # posthoorn-notify-filter, the messageserver plugin that keeps muted accounts quiet.
-SUBDIRS += notifyfilter
+packagesExist(QmfMessageServer) {
+    SUBDIRS += notifyfilter
+}
 
 OTHER_FILES += rpm/posthoorn.spec README.md docs/ROADMAP.md
 

@@ -236,7 +236,15 @@ Page {
                 BackgroundItem {
                     id: sortButton
 
-                    readonly property var names: [qsTr("Date"), qsTr("A → Z"), qsTr("Size"), qsTr("Oldest"), qsTr("Z → A")]
+                    function name(order) {
+                        switch (order) {
+                        case UnifiedMessageListModel.BySender: return qsTr("A → Z")
+                        case UnifiedMessageListModel.BySize: return qsTr("Size")
+                        case UnifiedMessageListModel.OldestFirst: return qsTr("Oldest")
+                        case UnifiedMessageListModel.BySenderDescending: return qsTr("Z → A")
+                        default: return qsTr("Date")
+                        }
+                    }
 
                     visible: !page.selecting && !page.conversation
                     // Above the page header, which spans the width.
@@ -252,7 +260,7 @@ Page {
                     Label {
                         id: sortLabel
                         anchors.centerIn: parent
-                        text: sortButton.names[AppState.sortOrder] + " ▾"
+                        text: sortButton.name(AppState.sortOrder) + " ▾"
                         font.pixelSize: Theme.fontSizeSmall
                         color: sortButton.highlighted ? Theme.highlightColor : Theme.secondaryHighlightColor
                     }
@@ -463,11 +471,10 @@ Page {
                         return qsTr("Starred")
                     if (section === "unread")
                         return qsTr("Unread")
-                    if (messages.sortOrder !== UnifiedMessageListModel.ByDate
-                            && messages.sortOrder !== UnifiedMessageListModel.OldestFirst)
-                        return section
-                    // "yyyy-MM-dd", as a local date.
-                    var parts = section.split("-")
+                    // "s:" and the sender, or "d:" and "yyyy-MM-dd", as a local date.
+                    if (section.indexOf("s:") === 0)
+                        return section.substring(2)
+                    var parts = section.substring(2).split("-")
                     if (parts.length !== 3)
                         return section
                     return Format.formatDate(new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])),

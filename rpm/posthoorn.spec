@@ -17,6 +17,8 @@ BuildRequires:  pkgconfig(QmfClient)
 BuildRequires:  pkgconfig(QmfMessageServer)
 BuildRequires:  pkgconfig(sailfishapp) >= 1.0.2
 BuildRequires:  desktop-file-utils
+# lupdate and lrelease, for the translations.
+BuildRequires:  qt5-qttools-linguist
 Requires:       sailfishsilica-qt5 >= 0.10.9
 # The Qt Messaging Framework QML API and its messageserver, shared with the stock Email app.
 Requires:       nemo-qml-plugin-email-qt5
