@@ -42,6 +42,15 @@ SOURCES += \
 
 SAILFISHAPP_ICONS = 86x86 108x108 128x128 172x172
 
+# Translations: qsTr() in qml/ and tr() in src/, collected by lupdate into translations/posthoorn.ts
+# (the source, in English) and the files below. libsailfishapp loads the one for the phone's
+# language.
+CONFIG += sailfishapp_i18n
+# posthoorn-en.ts only has the plurals ("1 folder", "2 folders"); the rest is the source text.
+TRANSLATIONS += \
+    translations/posthoorn-en.ts \
+    translations/posthoorn-fr.ts
+
 # For the posthoorn-default-mail package: in place of Jolla's Mail, mail notifications and mailto:
 # links open Posthoorn (see MailUiService).
 defaultmail_service.files = defaultmail/com.jolla.email.ui.service

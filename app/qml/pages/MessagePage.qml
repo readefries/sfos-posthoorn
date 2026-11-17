@@ -143,7 +143,7 @@ Page {
                            to: to.join(", "),
                            cc: cc.join(", "),
                            //: Prefix for the subject of a reply
-                           subject: prefixed(qsTr("Re: "), /^\s*(re|aw|antw|sv|vs):/i),
+                           subject: prefixed(qsTr("Re: "), /^\s*(re|aw|antw|sv|vs)\s*:/i),
                            responseType: all ? EmailMessage.ReplyToAll : EmailMessage.Reply,
                            originalMessageId: page.messageId,
                            encryptByDefault: pgp.kind === PgpMessage.Encrypted,
@@ -167,7 +167,7 @@ Page {
         pageStack.push(Qt.resolvedUrl("ComposePage.qml"), {
                            from: message.recipientAddress || message.accountAddress,
                            //: Prefix for the subject of a forwarded mail
-                           subject: prefixed(qsTr("Fwd: "), /^\s*(fwd?|wg|doorst):/i),
+                           subject: prefixed(qsTr("Fwd: "), /^\s*(fwd?|wg|doorst|tr)\s*:/i),
                            responseType: EmailMessage.Forward,
                            encryptByDefault: pgp.kind === PgpMessage.Encrypted,
                            originalMessageId: page.messageId,

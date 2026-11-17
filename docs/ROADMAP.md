@@ -149,7 +149,13 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   is gone since the recipient fields changed; not seen again for a new mail or a reply.
 - ✓ "Cannot pop while operation is in progress": going back now waits for page transitions.
 
-### 5. PGP
+### 5. Translations
+
+- ✓ `sailfishapp_i18n`: `app/translations/posthoorn.ts` from `qsTr()`/`tr()`, translations listed
+  in app.pro, loaded by libsailfishapp for the phone's language. French; English plurals.
+- More languages.
+
+### 6. PGP
 
 - ✓ A current GnuPG: Sailfish OS has 2.0.4 from 2007, without ECC keys. `posthoorn-gnupg` is
   GnuPG 2.4 with its libraries, static, in `/usr/libexec/posthoorn/gnupg`, kept current by a weekly
