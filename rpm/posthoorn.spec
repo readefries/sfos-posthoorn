@@ -68,6 +68,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}-mailto.deskto
 
 %install
 %qmake5_install
+# Listening from the next login on; deploy.sh's install line starts it right away.
+mkdir -p %{buildroot}/usr/lib/systemd/user/sockets.target.wants
+ln -s ../posthoorn-gpg-agent.socket %{buildroot}/usr/lib/systemd/user/sockets.target.wants/
 
 %files
 %license %{_datadir}/licenses/%{name}/LICENSE
@@ -75,6 +78,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}-mailto.deskto
 %{_datadir}/%{name}
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/*/apps/%{name}.png
+/usr/lib/systemd/user/posthoorn-gpg-agent.socket
+/usr/lib/systemd/user/posthoorn-gpg-agent.service
+/usr/lib/systemd/user/posthoorn-forget-on-lock.service
+/usr/lib/systemd/user/sockets.target.wants/posthoorn-gpg-agent.socket
 
 %files notify-filter
 %{_libdir}/qt5/plugins/messagingframework/messageserverplugins/libposthoornmutedaccounts.so

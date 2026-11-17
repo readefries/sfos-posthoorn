@@ -105,6 +105,54 @@ Page {
                 onCheckedChanged: AppState.attachPublicKey = checked
             }
 
+            ComboBox {
+                id: rememberBox
+
+                // PassphraseCache.minutes for each menu item: 0 never, -1 until Posthoorn closes.
+                readonly property var choices: [0, 5, 10, 30, 60, 240, -1]
+
+                enabled: app.pgpKeys.hasOwnKey
+                label: qsTr("Remember passphrase")
+                description: qsTr("After it was last used, for decrypting and signing")
+                currentIndex: Math.max(0, choices.indexOf(PassphraseCache.minutes))
+                // Only on a choice: currentIndex also changes while the menu is set up.
+                menu: ContextMenu {
+                    onActivated: PassphraseCache.minutes = rememberBox.choices[index]
+                    MenuItem { text: qsTr("Never") }
+                    MenuItem { text: qsTr("%n minute(s)", "", 5) }
+                    MenuItem { text: qsTr("%n minute(s)", "", 10) }
+                    MenuItem { text: qsTr("%n minute(s)", "", 30) }
+                    MenuItem { text: qsTr("%n hour(s)", "", 1) }
+                    MenuItem { text: qsTr("%n hour(s)", "", 4) }
+                    MenuItem { text: qsTr("Until Posthoorn closes") }
+                }
+            }
+
+            TextSwitch {
+                enabled: app.pgpKeys.hasOwnKey && PassphraseCache.minutes !== 0
+                text: qsTr("Forget it when the phone locks")
+                description: qsTr("Only with a lock code")
+                checked: PassphraseCache.forgetOnLock
+                onCheckedChanged: PassphraseCache.forgetOnLock = checked
+            }
+
+            TextSwitch {
+                enabled: app.pgpKeys.hasOwnKey && PassphraseCache.minutes !== 0 && PassphraseCache.outlivesApp
+                text: qsTr("Let gpg-agent keep it")
+                description: PassphraseCache.outlivesApp
+                             ? qsTr("GnuPG's own agent remembers it rather than Posthoorn, in memory that's never swapped out, also after Posthoorn closes")
+                             : qsTr("Needs posthoorn-gpg-agent, which runs from the next login after installing")
+                checked: PassphraseCache.useAgent
+                onCheckedChanged: PassphraseCache.useAgent = checked
+            }
+
+            Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                enabled: app.pgpKeys.hasOwnKey
+                text: qsTr("Forget passphrase now")
+                onClicked: PassphraseCache.forget()
+            }
+
             SectionHeader {
                 text: qsTr("Unified inbox")
             }

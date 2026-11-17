@@ -177,4 +177,25 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   unchanged, and checked to be so before sending.
 - ✓ Encrypting to the recipients' keys and one's own, signed inside; a recipient without a key
   blocks sending. A keys page: list, import, remove.
+- Remembering the passphrase (Settings → PGP), asked for by users who type it several times a day:
+  - How long after its last use: never, 5, 10 (as before), 30 minutes, 1 or 4 hours, or until
+    Posthoorn closes. Always in memory, never on disk; "Forget passphrase now" clears it.
+  - Optionally forgotten when the phone locks (nemo-devicelock's state on the system bus), so a
+    long time is safe while reading mail and ends when the phone goes in a pocket. Only with a
+    lock code. To check on the phone: whether the sandbox lets the signal through.
+  - Optionally kept by gpg-agent instead of Posthoorn: in memory that isn't swapped out, and
+    Posthoorn never sees it again after handing it over. Posthoorn writes the agent's
+    `default-cache-ttl` from the setting into its own `gpg-agent.conf`.
+  - Also after Posthoorn closes: the agent is `posthoorn-gpg-agent`, a socket-activated systemd
+    user service outside the sandbox (`app/systemd/`); an agent inside the sandbox would keep the
+    sandbox, and so the next start of the app, from ending. The sandbox's gpg reaches it through
+    a libassuan redirect file in its own socket folder, pointing to the socket in the keyring's
+    folder, which the sandbox shares. `posthoorn --forget-on-lock` runs alongside it as a service
+    and stops it when the phone locks, if chosen, also while the app is closed. Without the
+    socket (not started yet after installing), Posthoorn keeps the passphrase itself: an agent
+    in the sandbox is stopped after each gpg job, as one left running (the app killed rather
+    than closed) keeps the sandbox alive and the launcher then refuses to start the app. Any unsandboxed process of the user could ask that agent to
+    decrypt or sign while it remembers the passphrase, as with gpg-agent on a desktop.
+  - Not stored across restarts (Sailfish Secrets): then it's saved, with an expiry only the app
+    enforces.
 - Later: encrypting the subject (protected headers), exporting one's own key, encrypted drafts.

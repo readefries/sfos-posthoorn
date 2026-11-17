@@ -54,9 +54,10 @@ echo "Copied $(basename "$rpm"), $(basename "$notify_filter") and $(basename "$d
 # posthoorn-notify-filter requires the exact same version of posthoorn, so it's always installed
 # with it.
 extra=" ./$(basename "$notify_filter")${gnupg:+ ./$(basename "$gnupg")}"
-# Stopping the app afterwards, as a running one keeps the old version, and restarting the
-# messageserver, which loads the notify filter only when it starts.
-stop="pkill -f '^/usr/bin/posthoorn'; systemctl --user restart messageserver5"
+# Restarting the messageserver, which loads the notify filter only when it starts, starting the
+# socket of posthoorn-gpg-agent (else listening from the next login on), and stopping the app, as
+# a running one keeps the old version.
+stop="systemctl --user restart messageserver5; systemctl --user daemon-reload; systemctl --user start posthoorn-gpg-agent.socket; pkill -f '^/usr/bin/posthoorn'"
 # With posthoorn-default-mail installed both have to be updated together: it requires the exact
 # same version of posthoorn.
 if ssh "$host" rpm -q posthoorn-default-mail >/dev/null 2>&1; then

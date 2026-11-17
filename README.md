@@ -61,7 +61,13 @@ and sending are done by the messageserver. It can be used next to Jolla's Mail, 
 **PGP**
 
 - Signed mail shows who signed it and whether the signature holds; encrypted mail decrypts with
-  your key's passphrase, which Posthoorn keeps in memory for 10 minutes. PGP/MIME and inline PGP.
+  your key's passphrase. PGP/MIME and inline PGP.
+- The passphrase is remembered in memory for 10 minutes after its last use, or as long as chosen
+  in Settings (never, up to 4 hours, or until Posthoorn closes); optionally forgotten when the
+  phone locks, and optionally kept by GnuPG's gpg-agent rather than by Posthoorn. That agent,
+  `posthoorn-gpg-agent`, is a systemd user service outside the app's sandbox, so it keeps the
+  passphrase after Posthoorn closes; it listens from the next login after installing, or right
+  away after `systemctl --user start posthoorn-gpg-agent.socket`.
 - New mail is signed when one of your keys is for its From address, optionally with your public
   key attached, and can be encrypted to the recipients' keys (and yours, for Sent). Replies to
   encrypted mail are encrypted.

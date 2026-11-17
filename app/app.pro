@@ -13,6 +13,7 @@ HEADERS += \
     src/addresses.h \
     src/appstate.h \
     src/archivefolders.h \
+    src/devicelock.h \
     src/gpgjob.h \
     src/imappartfetcher.h \
     src/links.h \
@@ -22,6 +23,7 @@ HEADERS += \
     src/pgpkeys.h \
     src/pgpmessage.h \
     src/outgoingmessage.h \
+    src/passphrasecache.h \
     src/sendingaddresses.h \
     src/signatures.h \
     src/snoozes.h \
@@ -29,12 +31,14 @@ HEADERS += \
 SOURCES += \
     src/appstate.cpp \
     src/archivefolders.cpp \
+    src/devicelock.cpp \
     src/gpgjob.cpp \
     src/imappartfetcher.cpp \
     src/mailuiservice.cpp \
     src/main.cpp \
     src/messagebody.cpp \
     src/outgoingmessage.cpp \
+    src/passphrasecache.cpp \
     src/pgpkeys.cpp \
     src/pgpmessage.cpp \
     src/sendingaddresses.cpp \
@@ -62,6 +66,13 @@ defaultmail_profile.path = /etc/sailjail/permissions
 defaultmail_mailto.files = defaultmail/posthoorn-mailto.desktop
 defaultmail_mailto.path = /usr/share/applications
 INSTALLS += defaultmail_service defaultmail_profile defaultmail_mailto
+
+# posthoorn-gpg-agent: gpg-agent outside the sandbox, so it can keep the passphrase after the app
+# closes (see GpgJob::setUpSystemAgent()). The spec enables the socket.
+systemd_units.files = systemd/posthoorn-gpg-agent.socket systemd/posthoorn-gpg-agent.service \
+    systemd/posthoorn-forget-on-lock.service
+systemd_units.path = /usr/lib/systemd/user
+INSTALLS += systemd_units
 
 DISTFILES += \
     posthoorn.desktop \

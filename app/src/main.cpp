@@ -13,6 +13,7 @@
 #include "pgpkeys.h"
 #include "pgpmessage.h"
 #include "outgoingmessage.h"
+#include "passphrasecache.h"
 #include "sendingaddresses.h"
 #include "signatures.h"
 #include "snoozes.h"
@@ -70,10 +71,17 @@ void startFileLog()
 
 int main(int argc, char *argv[])
 {
-    QScopedPointer<QGuiApplication> app(SailfishApp::application(argc, argv));
     // Must match OrganizationName and ApplicationName in posthoorn.desktop.
-    app->setOrganizationName(QStringLiteral("nl.readefries"));
-    app->setApplicationName(QStringLiteral("posthoorn"));
+    QCoreApplication::setOrganizationName(QStringLiteral("nl.readefries"));
+    QCoreApplication::setApplicationName(QStringLiteral("posthoorn"));
+
+    // The posthoorn-forget-on-lock service, without the UI.
+    if (argc > 1 && qstrcmp(argv[1], "--forget-on-lock") == 0) {
+        QCoreApplication app(argc, argv);
+        return PassphraseCache::watchDeviceLock();
+    }
+
+    QScopedPointer<QGuiApplication> app(SailfishApp::application(argc, argv));
     app->setApplicationVersion(QStringLiteral(POSTHOORN_VERSION));
 
     startFileLog();
@@ -126,6 +134,15 @@ int main(int argc, char *argv[])
                                                 QQmlEngine::setObjectOwnership(mailUi, QQmlEngine::CppOwnership);
                                                 return mailUi;
                                             });
+
+    // Before any gpg job, which asks it for the passphrase.
+    static PassphraseCache *passphraseCache = new PassphraseCache(app.data());
+    QObject::connect(app.data(), &QCoreApplication::aboutToQuit, passphraseCache, &PassphraseCache::close);
+    qmlRegisterSingletonType<PassphraseCache>("Posthoorn", 1, 0, "PassphraseCache",
+                                              [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                                  QQmlEngine::setObjectOwnership(passphraseCache, QQmlEngine::CppOwnership);
+                                                  return passphraseCache;
+                                              });
 
     QScopedPointer<QQuickView> view(SailfishApp::createView());
     view->setSource(SailfishApp::pathToMainQml());

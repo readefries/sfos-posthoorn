@@ -13,9 +13,11 @@
 //
 // A passphrase goes in on stdin (--passphrase-fd 0), so any other input must be a file.
 //
-// gpg starts gpg-agent as a daemon, which would outlive the app in its sandbox and keep the
-// sandbox, and so the next start of the app, from ending. So the agent is stopped again once no
-// job runs any more, and the passphrase is kept here instead (rememberPassphrase()).
+// The agent: preferably posthoorn-gpg-agent, a systemd user service outside the sandbox
+// (app/systemd/), which can outlive the app. Without it, gpg starts gpg-agent as a daemon in the
+// sandbox, which would outlive the app there and keep the sandbox, and so the next start of the
+// app, from ending (and the launcher refuses a second instance). So that one is stopped again
+// once no job runs any more, and Posthoorn keeps the passphrase itself (PassphraseCache).
 class GpgJob : public QObject
 {
     Q_OBJECT
@@ -29,9 +31,21 @@ public:
     // The keyring's folder, created when missing.
     static QString homeDirectory();
 
-    // The passphrase that last worked, for a while: empty when there's none or it expired.
+    // The passphrase that last worked, for a while (PassphraseCache): empty when there's none,
+    // it expired or gpg-agent keeps it.
     static QString passphrase();
     static void rememberPassphrase(const QString &passphrase);
+
+    // How many gpg jobs run now.
+    static int runningJobs();
+    // Points gpg to posthoorn-gpg-agent when its socket is there and it answers; once, before
+    // any job. Whether it does.
+    static bool setUpSystemAgent();
+    static bool systemAgent();
+    // Ends gpg-agent, and with it what it remembered. posthoorn-gpg-agent starts again when used.
+    static void stopAgent();
+    // Has a running gpg-agent read its settings again, which also empties its cache.
+    static void reloadAgent();
 
     // Signed data in its canonical form, with CRLF line ends (RFC 3156).
     static QByteArray canonical(const QByteArray &data);
