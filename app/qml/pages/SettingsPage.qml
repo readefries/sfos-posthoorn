@@ -3,7 +3,8 @@ import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Posthoorn 1.0
 
-// The unified inbox's folders and each account's archive folder.
+// The unified inbox's folders, each account's archive folder and the patterns of addresses it
+// replies from.
 Page {
     id: page
 
@@ -207,6 +208,39 @@ Page {
                             truncationMode: TruncationMode.Fade
                         }
                     }
+                }
+            }
+
+            SectionHeader {
+                text: qsTr("Reply addresses")
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                text: qsTr("A reply goes out from the address a mail was delivered to when it matches one of "
+                           + "its account's patterns, such as *@example.com for all the addresses of a domain.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.secondaryHighlightColor
+            }
+
+            Repeater {
+                model: app.accounts
+
+                ValueButton {
+                    readonly property int accountId: model.mailAccountId
+                    readonly property int count: {
+                        SendingAddresses.revision
+                        return SendingAddresses.patterns(accountId).length
+                    }
+
+                    label: model.displayName
+                    value: count > 0 ? qsTr("%n pattern(s)", "", count) : qsTr("None")
+                    onClicked: pageStack.push(Qt.resolvedUrl("ReplyAddressesPage.qml"), {
+                                                  accountId: accountId,
+                                                  accountName: model.displayName
+                                              })
                 }
             }
         }

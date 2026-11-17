@@ -22,6 +22,7 @@ HEADERS += \
     src/pgpkeys.h \
     src/pgpmessage.h \
     src/outgoingmessage.h \
+    src/sendingaddresses.h \
     src/signatures.h \
     src/snoozes.h \
     src/unifiedmessagelistmodel.h
@@ -36,6 +37,7 @@ SOURCES += \
     src/outgoingmessage.cpp \
     src/pgpkeys.cpp \
     src/pgpmessage.cpp \
+    src/sendingaddresses.cpp \
     src/signatures.cpp \
     src/snoozes.cpp \
     src/unifiedmessagelistmodel.cpp
@@ -77,6 +79,7 @@ DISTFILES += \
     qml/pages/OpenLinkDialog.qml \
     qml/pages/PassphraseDialog.qml \
     qml/pages/PgpStatus.qml \
+    qml/pages/ReplyAddressesPage.qml \
     qml/pages/ReceivedAttachmentItem.qml \
     qml/pages/SettingsPage.qml \
     qml/pages/SignatureDialog.qml \

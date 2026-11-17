@@ -103,8 +103,11 @@ Page {
                             MenuItem {
                                 text: qsTr("Delete")
                                 onClicked: {
+                                    // Taken now: when the remorse is over, the item's context is
+                                    // gone, and with it the Signatures singleton's name.
+                                    var signatures = Signatures
                                     var id = modelData.id
-                                    item.remorseDelete(function() { Signatures.remove(id) })
+                                    item.remorseDelete(function() { signatures.remove(id) })
                                 }
                             }
                         }

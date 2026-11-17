@@ -108,7 +108,29 @@ Dialog {
         return false
     }
 
-    readonly property int accountId: identities.accountId(fromBox.currentIndex)
+    // { address, accountId } for From: the accounts' addresses and aliases, and from when it
+    // matches an account's patterns (SendingAddresses), as a reply's can.
+    readonly property var fromChoices: {
+        SendingAddresses.revision
+        return SendingAddresses.choices(from)
+    }
+
+    function indexOfAddress(address) {
+        var wanted = (address || "").toLowerCase()
+        for (var i = 0; i < fromChoices.length; ++i) {
+            if (fromChoices[i].address.toLowerCase() === wanted)
+                return i
+        }
+        return -1
+    }
+
+    function accountOfAddress(address) {
+        var index = indexOfAddress(address)
+        return index >= 0 ? fromChoices[index].accountId : 0
+    }
+
+    readonly property int accountId: fromBox.currentIndex >= 0 && fromBox.currentIndex < fromChoices.length
+                                     ? fromChoices[fromBox.currentIndex].accountId : 0
     // The signature set for the account in Settings → Accounts, when it's switched on there.
     readonly property string accountSignature: accountId > 0 && app.accounts.appendSignature(accountId)
                                                ? app.accounts.signature(accountId) : ""
@@ -160,7 +182,7 @@ Dialog {
             signatureChoice = own
             return
         }
-        var account = identities.accountId(identities.indexFromAddress(address))
+        var account = accountOfAddress(address)
         if (account > 0 && app.accounts.signature(account).trim() === text.trim()) {
             signatureChoice = "account"
             return
@@ -342,7 +364,7 @@ Dialog {
     Component.onCompleted: {
         if (draftId > 0)
             loadDraft()
-        var index = identities.indexFromAddress(from)
+        var index = indexOfAddress(from)
         if (index >= 0)
             fromBox.currentIndex = index
         pickDefaultSignature()
@@ -411,10 +433,6 @@ Dialog {
 
     RemorsePopup {
         id: remorse
-    }
-
-    EmailTransmitAddressListModel {
-        id: identities
     }
 
     MessageBody {
@@ -492,13 +510,13 @@ Dialog {
             ComboBox {
                 id: fromBox
                 label: qsTr("From")
-                enabled: identities.numberOfAddresses > 1
+                enabled: dialog.fromChoices.length > 1
                 onValueChanged: dialog.pickDefaultSignature()
                 menu: ContextMenu {
                     Repeater {
-                        model: identities
+                        model: dialog.fromChoices
                         MenuItem {
-                            text: model.emailAddress
+                            text: modelData.address
                         }
                     }
                 }

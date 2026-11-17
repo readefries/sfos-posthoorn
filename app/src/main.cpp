@@ -13,6 +13,7 @@
 #include "pgpkeys.h"
 #include "pgpmessage.h"
 #include "outgoingmessage.h"
+#include "sendingaddresses.h"
 #include "signatures.h"
 #include "snoozes.h"
 #include "unifiedmessagelistmodel.h"
@@ -100,6 +101,10 @@ int main(int argc, char *argv[])
                                       [](QQmlEngine *, QJSEngine *) -> QObject * {
                                           return new Snoozes;
                                       });
+    qmlRegisterSingletonType<SendingAddresses>("Posthoorn", 1, 0, "SendingAddresses",
+                                               [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                                   return new SendingAddresses;
+                                               });
     qmlRegisterSingletonType<Signatures>("Posthoorn", 1, 0, "Signatures",
                                          [](QQmlEngine *, QJSEngine *) -> QObject * {
                                              return new Signatures;

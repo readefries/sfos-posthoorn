@@ -4,6 +4,7 @@
 #include "flowedtext.h"
 #include "gpgjob.h"
 #include "maildraft.h"
+#include "sendingaddresses.h"
 
 #include <qmailaccount.h>
 #include <qmaildisconnected.h>
@@ -16,35 +17,6 @@
 #include <QTemporaryFile>
 
 namespace {
-
-// The enabled account that address belongs to, as its main address or one of its aliases, and
-// the address to send from (with the account's name).
-QMailAccount accountFor(const QString &address, QMailAddress *sender)
-{
-    const QMailAccountIdList ids = QMailStore::instance()->queryAccounts(
-                QMailAccountKey::messageType(QMailMessage::Email)
-                & QMailAccountKey::status(QMailAccount::Enabled),
-                QMailAccountSortKey::name());
-    for (const QMailAccountId &id : ids) {
-        const QMailAccount account(id);
-        const QMailAddress main = account.fromAddress();
-        if (main.address().compare(address, Qt::CaseInsensitive) == 0) {
-            *sender = main;
-            return account;
-        }
-        const QMailAddress aliases = account.fromAliases();
-        const QList<QMailAddress> members = aliases.isGroup() ? aliases.groupMembers()
-                                                              : QList<QMailAddress>() << aliases;
-        for (const QMailAddress &alias : members) {
-            if (!alias.isNull() && alias.address().compare(address, Qt::CaseInsensitive) == 0) {
-                *sender = QMailAddress(alias.name().isEmpty() ? main.name() : alias.name(),
-                                       alias.address());
-                return account;
-            }
-        }
-    }
-    return QMailAccount();
-}
 
 // The micalg of a PGP/MIME signature, from the hash algorithm gpg reports (RFC 4880, 9.4).
 QByteArray micalg(const QString &hashAlgorithm)
@@ -282,7 +254,7 @@ bool OutgoingMessage::build(QMailMessage *message, QMailMessagePartContainer *co
     }
 
     QMailAddress sender;
-    const QMailAccount account = accountFor(m_from, &sender);
+    const QMailAccount account = SendingAddresses::accountFor(m_from, &sender);
     if (!account.id().isValid())
         return fail(tr("No account sends from %1").arg(m_from));
 
@@ -440,7 +412,7 @@ QString OutgoingMessage::signer() const
     if (!m_signingKey.isEmpty())
         return m_signingKey;
     QMailAddress sender;
-    accountFor(m_from, &sender);
+    SendingAddresses::accountFor(m_from, &sender);
     return QLatin1Char('<') + (sender.isNull() ? m_from : sender.address()) + QLatin1Char('>');
 }
 

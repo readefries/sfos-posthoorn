@@ -9,7 +9,9 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include <qmailmessagelistmodel.h>
+#include <memory>
+
+#include <qmailmessagemodelbase.h>
 
 class QMailSearchAction;
 
@@ -19,7 +21,12 @@ class QMailSearchAction;
 //
 // Has the role names, selection and count of the plugin's EmailMessageListModel. Acting on
 // messages is left to EmailAgent.
-class UnifiedMessageListModel : public QMailMessageListModel
+//
+// Keeps its own rows rather than QMailMessageListModel's, which sorts in SQL (by the raw From
+// text, and by a row's own Read flag when a conversation is unread through another message) and,
+// after changes, resets the list or leaves rows at the wrong place. Here they're sorted in C++
+// and, after changes, moved, so the view keeps its place.
+class UnifiedMessageListModel : public QMailMessageModelBase
 {
     Q_OBJECT
     Q_PROPERTY(QVariantList folderIds READ folderIds WRITE setFolderIds NOTIFY folderIdsChanged)
@@ -56,8 +63,8 @@ class UnifiedMessageListModel : public QMailMessageListModel
     Q_PROPERTY(int selectedMessageCount READ selectedMessageCount NOTIFY selectedMessageCountChanged)
 
 public:
-    // Stored as numbers (AppState.sortOrder): new ones go at the end.
-    enum SortOrder { ByDate, BySender, BySize, OldestFirst, BySenderDescending };
+    // Stored as numbers (AppState.sortOrder): new ones go at the end, before SortOrderCount.
+    enum SortOrder { ByDate, BySender, BySize, OldestFirst, BySenderDescending, SortOrderCount };
     Q_ENUM(SortOrder)
 
     enum Roles {
@@ -78,8 +85,9 @@ public:
         ThreadCountRole,
         SelectedRole,
         // The list's sections, which follow the order: "starred" for the starred rows on top with
-        // starredFirst, "unread" for the unread ones with unreadFirst, otherwise the day (as
-        // "yyyy-MM-dd") by date, the sender by sender, and nothing by size.
+        // starredFirst, "unread" for the unread ones with unreadFirst, otherwise "d:" and the day
+        // (as "yyyy-MM-dd") by date, "s:" and the sender by sender, and nothing by size. The
+        // prefixes keep a sender called "Starred" out of the starred section.
         SortSectionRole
     };
 
@@ -87,8 +95,11 @@ public:
     ~UnifiedMessageListModel() override;
 
     QHash<int, QByteArray> roleNames() const override;
+    QModelIndex index(int row, int column = 0, const QModelIndex &parent = QModelIndex()) const override;
+    QModelIndex parent(const QModelIndex &index) const override;
+    QModelIndex generateIndex(int row, int column, void *ptr) override;
     // Not hidden by the override below.
-    using QMailMessageListModel::data;
+    using QMailMessageModelBase::data;
 
     QVariantList folderIds() const { return m_folderIds; }
     void setFolderIds(const QVariantList &ids);
@@ -148,14 +159,26 @@ signals:
 
 protected:
     QVariant data(const QMailMessageMetaData &metaData, int role) const override;
+    QMailMessageModelImplementation *impl() override;
+    const QMailMessageModelImplementation *impl() const override;
 
 private:
+    class Rows;
+    friend class Rows;
+
     void onMessagesRemoved(const QMailMessageIdList &ids);
     void updateKey();
-    void updateSortKey();
-    // After mail changed: the rows in the order they should be in now, and how they look.
-    void onMessagesUpdated(const QMailMessageIdList &ids);
-    void refreshRows();
+    // Sorts the rows again, after the order changed.
+    void resort();
+    // The messages of key, in the order the list shows them.
+    QMailMessageIdList orderedIds(const QMailMessageKey &key) const;
+    // Unread, or with threaded a conversation with an unread message.
+    bool isUnread(const QMailMessageId &id, quint64 status) const;
+    // After mail changed: the rows put in the order they should be in now, by moving, adding and
+    // removing rows rather than resetting the list, and the changed ones drawn again (all with
+    // allChanged).
+    void reorder(bool allChanged = false);
+    void removeRows(const QMailMessageIdList &ids);
     // force: set the key even when the rows are the same, as after the folders changed.
     void regroup(bool force = false);
     void onStoreChanged();
@@ -172,6 +195,9 @@ private:
     SortOrder m_sortOrder = ByDate;
     bool m_starredFirst = false;
     bool m_unreadFirst = false;
+    std::unique_ptr<Rows> m_list;
+    // Changed messages in the list, to draw again once reorder() runs.
+    QSet<QMailMessageId> m_changed;
     QTimer m_refreshTimer;
     // With threaded: the messages grouped, each row's messages, the unread ones among them, and
     // the rows' conversations' sizes.

@@ -96,12 +96,27 @@
 <context>
     <name>ComposePage</name>
     <message>
-        <location filename="../qml/pages/ComposePage.qml" line="+224"/>
+        <location filename="../qml/pages/ComposePage.qml" line="+155"/>
+        <source>No signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>The account&apos;s signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>The draft&apos;s signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+143"/>
         <source>The draft couldn&apos;t be opened</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+26"/>
         <source>Can&apos;t encrypt: no key for %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -116,7 +131,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+40"/>
         <source>The original&apos;s attachments couldn&apos;t be downloaded</source>
         <translation type="unfinished"></translation>
     </message>
@@ -126,7 +141,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+44"/>
+        <location line="+40"/>
         <source>Delete draft</source>
         <translation type="unfinished"></translation>
     </message>
@@ -196,7 +211,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+15"/>
         <location line="+1"/>
         <source>To</source>
         <translation type="unfinished"></translation>
@@ -266,6 +281,11 @@
     <message>
         <location line="+22"/>
         <source>Message</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>Signature</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -432,7 +452,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+24"/>
         <source>Your key</source>
         <translation type="unfinished"></translation>
     </message>
@@ -467,7 +487,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+75"/>
+        <location line="+83"/>
         <source>Re: </source>
         <extracomment>Prefix for the subject of a reply</extracomment>
         <translation type="unfinished"></translation>
@@ -571,17 +591,42 @@
     <name>MessagesPage</name>
     <message>
         <location filename="../qml/pages/MessagesPage.qml" line="+13"/>
-        <location line="+348"/>
+        <location line="+407"/>
         <source>Search</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-181"/>
+        <location line="-236"/>
         <source>Folders</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location line="+57"/>
+        <source>A → Z</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Oldest</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Z → A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Date</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
-        <location line="+49"/>
+        <location line="+31"/>
         <source>%n selected</source>
         <translation>
             <numerusform>%n selected</numerusform>
@@ -623,16 +668,18 @@
     </message>
     <message>
         <location line="+6"/>
+        <location line="+151"/>
         <source>Unread</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="-145"/>
+        <location line="+143"/>
         <source>Starred</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="-137"/>
         <source>With attachments</source>
         <translation type="unfinished"></translation>
     </message>
@@ -667,7 +714,20 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+6"/>
+        <source>Mark all as read</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location line="+3"/>
+        <source>Marking %n message(s) as read</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location line="+14"/>
         <source>Remove from favourites</source>
         <translation type="unfinished"></translation>
     </message>
@@ -757,7 +817,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+46"/>
+        <location line="+61"/>
         <source>until %1</source>
         <extracomment>In the Snoozed folder: when a mail comes back. %1 is a date and time.</extracomment>
         <translation type="unfinished"></translation>
@@ -818,7 +878,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location line="+131"/>
+        <location line="+141"/>
         <source>Deleting %n message(s)</source>
         <translation>
             <numerusform>Deleting %n message</numerusform>
@@ -923,7 +983,7 @@
 <context>
     <name>OutgoingMessage</name>
     <message>
-        <location filename="../src/outgoingmessage.cpp" line="+287"/>
+        <location filename="../src/outgoingmessage.cpp" line="+259"/>
         <source>No account sends from %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1196,9 +1256,57 @@
     </message>
 </context>
 <context>
+    <name>ReplyAddressesPage</name>
+    <message>
+        <location filename="../qml/pages/ReplyAddressesPage.qml" line="+26"/>
+        <source>%1 is already there</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Not a pattern: use one address, with * for any part before or after the @, but not for the whole domain</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Reply addresses</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>A reply goes out from the address a mail was delivered to when it matches one of these. * stands for anything but @: *@example.com is every address of example.com, me+*@example.com every one starting with me+. The account&apos;s mail server has to accept sending from them.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Add a pattern</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Add a pattern, such as *@example.com</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Patterns</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>None yet: replies go out from the account&apos;s address, or the alias the mail was sent to.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Remove</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>SettingsPage</name>
     <message>
-        <location filename="../qml/pages/SettingsPage.qml" line="+19"/>
+        <location filename="../qml/pages/SettingsPage.qml" line="+20"/>
         <source>Settings</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1219,6 +1327,44 @@
     </message>
     <message>
         <location line="+6"/>
+        <source>Writing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Signatures</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location line="+1"/>
+        <source>%n signature(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>The accounts&apos; signatures</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Notifications</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>New mail of the accounts switched off here comes in as before, without a notification.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Switching off an account&apos;s notifications needs the posthoorn-notify-filter package.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+26"/>
         <source>PGP</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1324,6 +1470,111 @@
         <source>%1 (found by its name)</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location line="+11"/>
+        <source>Reply addresses</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>A reply goes out from the address a mail was delivered to when it matches one of its account&apos;s patterns, such as *@example.com for all the addresses of a domain.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location line="+18"/>
+        <source>%n pattern(s)</source>
+        <translation>
+            <numerusform>%n pattern</numerusform>
+            <numerusform>%n patterns</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>None</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SignatureDialog</name>
+    <message>
+        <location filename="../qml/pages/SignatureDialog.qml" line="+29"/>
+        <source>Save</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Name, e.g. Work or Personal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <location line="+1"/>
+        <source>Signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Mail goes out as plain text, so the signature is text too. It comes after your text, below a &quot;-- &quot; line, so mail apps can tell it apart.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SignaturesPage</name>
+    <message>
+        <location filename="../qml/pages/SignaturesPage.qml" line="+13"/>
+        <source>The account&apos;s signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>No signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>New signature</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Signatures</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Signatures of your own, for any of your addresses. The account&apos;s signature is the one set in Settings → Accounts. Each mail can still use another.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Your signatures</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>None yet. Pull down to add one.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Edit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Delete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+42"/>
+        <source>Per address</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>SnoozePage</name>
@@ -1368,6 +1619,69 @@
     <message>
         <location line="+39"/>
         <source>Pick a date and time…</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SortPage</name>
+    <message>
+        <location filename="../qml/pages/SortPage.qml" line="+12"/>
+        <source>By date, newest first</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>By date, oldest first</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>By sender, A to Z</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>By sender, Z to A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>By size, largest first</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Order</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+31"/>
+        <source>First</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Starred mail first</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Above the rest of the list, in the order above</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Unread mail first</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Above the read mail, in the order above, below the starred mail when that&apos;s first</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>For all lists. By size, it&apos;s the size of the whole mail, mostly its attachments.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
