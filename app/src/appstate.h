@@ -38,6 +38,11 @@ class AppState : public QObject
     Q_PROPERTY(bool starredFirst READ starredFirst WRITE setStarredFirst NOTIFY starredFirstChanged)
     // Unread mail at the top of message lists (below starred mail with starredFirst).
     Q_PROPERTY(bool unreadFirst READ unreadFirst WRITE setUnreadFirst NOTIFY unreadFirstChanged)
+    // Accounts whose new mail is announced by no notification, as account ids. The messageserver
+    // reads them too, with the posthoorn-notify-filter plugin (notifyfilter/).
+    Q_PROPERTY(QStringList mutedAccounts READ mutedAccounts NOTIFY mutedAccountsChanged)
+    // Whether that plugin is installed: without it, muting an account does nothing.
+    Q_PROPERTY(bool notifyFilterInstalled READ notifyFilterInstalled CONSTANT)
 
 public:
     explicit AppState(QObject *parent = nullptr);
@@ -63,6 +68,8 @@ public:
     void setStarredFirst(bool first);
     bool unreadFirst() const { return m_unreadFirst; }
     void setUnreadFirst(bool first);
+    QStringList mutedAccounts() const { return m_mutedAccounts; }
+    bool notifyFilterInstalled() const;
 
     Q_INVOKABLE void save(const QString &page, int accountId = 0, int folderId = 0);
     Q_INVOKABLE void setUnifiedFolders(const QStringList &folders);
@@ -70,6 +77,8 @@ public:
     Q_INVOKABLE void resetUnifiedFolders();
     Q_INVOKABLE bool isFavourite(int accountId, int folderId) const;
     Q_INVOKABLE void setFavourite(int accountId, int folderId, bool favourite);
+    Q_INVOKABLE bool isMuted(int accountId) const;
+    Q_INVOKABLE void setMuted(int accountId, bool muted);
 
 signals:
     void changed();
@@ -81,6 +90,7 @@ signals:
     void sortOrderChanged();
     void starredFirstChanged();
     void unreadFirstChanged();
+    void mutedAccountsChanged();
 
 private:
     QSettings m_settings;
@@ -96,6 +106,7 @@ private:
     int m_sortOrder = 0;
     bool m_starredFirst = false;
     bool m_unreadFirst = false;
+    QStringList m_mutedAccounts;
 };
 
 #endif // APPSTATE_H

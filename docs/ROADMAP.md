@@ -107,6 +107,11 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   com.jolla.email.ui, so the system's new-mail notifications (from qmf-notifications-plugin) and
   mailto: links open it. Its sailjail profile allows the name; it conflicts with jolla-email.
   Removing jolla-email switches off the mail accounts, which then need switching on again.
+- ✓ Notifications per account, with the opt-in `posthoorn-notify-filter` package: a messageserver
+  plugin sets `NoNotification` on new mail of the accounts switched off in Settings, before the
+  notifications plugin (qmf-notifications-plugin) sees it. Its key, "mutedaccounts", sorts before
+  "notifications", which decides the order the messageserver starts them in; the other way round,
+  the notifications plugin would still drop the mail on its status change.
 - Checking for new mail on a schedule: Settings → Accounts already does this per account, peak
   hours included (Buteo's sync schedule, run by msyncd even with the app closed). Posthoorn's
   Settings could show each account's schedule and open that page.
@@ -121,6 +126,9 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   above (default) or below the quote, or without it.
 - ✓ Replying to a selection quotes only that.
 - ✓ The account's signature, drafts when leaving with text, a notice when sending finished.
+- ✓ Signatures of one's own (`Signatures`, signatures.ini): plain text, a choice per sending
+  address (the account's, none, or one of them) and per mail in the composer. A continued draft
+  keeps its signature, recognised as one of these or the account's when it is.
 - ✓ Attachments: adding files with the content picker, sending the original's along when
   forwarding (downloaded into the mail store first, not into Downloads), removing them again.
 - ✓ Opening and saving the attachments of received mail: listed in the reader, downloaded on a
@@ -141,7 +149,13 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   is gone since the recipient fields changed; not seen again for a new mail or a reply.
 - ✓ "Cannot pop while operation is in progress": going back now waits for page transitions.
 
-### 5. PGP
+### 5. Translations
+
+- ✓ `sailfishapp_i18n`: `app/translations/posthoorn.ts` from `qsTr()`/`tr()`, translations listed
+  in app.pro, loaded by libsailfishapp for the phone's language. French; English plurals.
+- More languages.
+
+### 6. PGP
 
 - ✓ A current GnuPG: Sailfish OS has 2.0.4 from 2007, without ECC keys. `posthoorn-gnupg` is
   GnuPG 2.4 with its libraries, static, in `/usr/libexec/posthoorn/gnupg`, kept current by a weekly
