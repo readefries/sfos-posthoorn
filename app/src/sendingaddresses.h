@@ -25,10 +25,12 @@ public:
 
     int revision() const { return m_revision; }
 
-    // The account's patterns, separated by ", ", or "".
-    Q_INVOKABLE QString patterns(int accountId) const;
-    // As typed: separated by commas or spaces. Those that would match far too much are left out.
-    Q_INVOKABLE void setPatterns(int accountId, const QString &text);
+    // The account's patterns, in the order added.
+    Q_INVOKABLE QStringList patterns(int accountId) const;
+    // Adds one pattern, in lower case. False, changing nothing, when it isn't one
+    // (AddressPatterns::parse leaves it out: it would match far too much) or the account has it.
+    Q_INVOKABLE bool addPattern(int accountId, const QString &pattern);
+    Q_INVOKABLE void removePattern(int accountId, const QString &pattern);
 
     // { address, accountId } for each address of each enabled account, and extra (an address
     // matching an account's patterns, as a reply's) after its account's when it isn't one of them.
@@ -49,6 +51,7 @@ signals:
 
 private:
     static QStringList patternsOf(const QSettings &settings, const QMailAccountId &id);
+    void store(const QMailAccountId &id, const QStringList &patterns);
 
     QSettings m_settings;
     int m_revision = 0;

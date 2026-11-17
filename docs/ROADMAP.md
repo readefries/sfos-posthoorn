@@ -122,7 +122,7 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   pulleys. From picks among the accounts' addresses and aliases; a reply defaults to the address
   the mail was sent to. Reply all leaves out one's own addresses.
 - ✓ Reply addresses by pattern (`SendingAddresses`, `core/addresspatterns.cpp`), as Thunderbird's
-  "reply from this identity when delivery headers match": per account in Settings, such as
+  "reply from this identity when delivery headers match": a list per account in Settings, such as
   `*@example.com` for a catch-all domain. A reply or forward goes out from the address the mail
   was delivered to (Delivered-To, X-Original-To, …, then To and Cc) when it matches, through that
   account; reply all leaves those addresses out too.

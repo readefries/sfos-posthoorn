@@ -1256,6 +1256,54 @@
     </message>
 </context>
 <context>
+    <name>ReplyAddressesPage</name>
+    <message>
+        <location filename="../qml/pages/ReplyAddressesPage.qml" line="+26"/>
+        <source>%1 is already there</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Not a pattern: use one address, with * for any part before or after the @, but not for the whole domain</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Reply addresses</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>A reply goes out from the address a mail was delivered to when it matches one of these. * stands for anything but @: *@example.com is every address of example.com, me+*@example.com every one starting with me+. The account&apos;s mail server has to accept sending from them.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Add a pattern</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Add a pattern, such as *@example.com</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Patterns</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>None yet: replies go out from the account&apos;s address, or the alias the mail was sent to.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Remove</source>
+        <translation type="unfinished">Retirer</translation>
+    </message>
+</context>
+<context>
     <name>SettingsPage</name>
     <message>
         <location filename="../qml/pages/SettingsPage.qml" line="+20"/>
@@ -1429,12 +1477,20 @@
     </message>
     <message>
         <location line="+6"/>
-        <source>A reply goes out from the address a mail was delivered to when it matches one of these, such as *@example.com or me+*@example.com. * stands for anything but @. The account&apos;s mail server has to accept sending from them.</source>
+        <source>A reply goes out from the address a mail was delivered to when it matches one of its account&apos;s patterns, such as *@example.com for all the addresses of a domain.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message numerus="yes">
+        <location line="+18"/>
+        <source>%n pattern(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
     <message>
-        <location line="+24"/>
-        <source>Patterns for %1</source>
+        <location line="+0"/>
+        <source>None</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

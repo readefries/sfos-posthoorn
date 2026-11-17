@@ -79,6 +79,7 @@ DISTFILES += \
     qml/pages/OpenLinkDialog.qml \
     qml/pages/PassphraseDialog.qml \
     qml/pages/PgpStatus.qml \
+    qml/pages/ReplyAddressesPage.qml \
     qml/pages/ReceivedAttachmentItem.qml \
     qml/pages/SettingsPage.qml \
     qml/pages/SignatureDialog.qml \

@@ -219,8 +219,7 @@ Page {
                 x: Theme.horizontalPageMargin
                 width: parent.width - 2 * Theme.horizontalPageMargin
                 text: qsTr("A reply goes out from the address a mail was delivered to when it matches one of "
-                           + "these, such as *@example.com or me+*@example.com. * stands for anything but @. "
-                           + "The account's mail server has to accept sending from them.")
+                           + "its account's patterns, such as *@example.com for all the addresses of a domain.")
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.fontSizeExtraSmall
                 color: Theme.secondaryHighlightColor
@@ -229,29 +228,19 @@ Page {
             Repeater {
                 model: app.accounts
 
-                TextField {
-                    id: patternsField
-
+                ValueButton {
                     readonly property int accountId: model.mailAccountId
-
-                    function save() {
-                        SendingAddresses.setPatterns(accountId, text)
-                        // As stored: in lower case, without what was left out.
-                        text = SendingAddresses.patterns(accountId)
+                    readonly property int count: {
+                        SendingAddresses.revision
+                        return SendingAddresses.patterns(accountId).length
                     }
 
-                    width: column.width
                     label: model.displayName
-                    placeholderText: qsTr("Patterns for %1").arg(model.displayName)
-                    text: SendingAddresses.patterns(accountId)
-                    inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
-                    EnterKey.iconSource: "image://theme/icon-m-enter-close"
-                    EnterKey.onClicked: focus = false
-                    onActiveFocusChanged: {
-                        if (!activeFocus)
-                            save()
-                    }
-                    Component.onDestruction: save()
+                    value: count > 0 ? qsTr("%n pattern(s)", "", count) : qsTr("None")
+                    onClicked: pageStack.push(Qt.resolvedUrl("ReplyAddressesPage.qml"), {
+                                                  accountId: accountId,
+                                                  accountName: model.displayName
+                                              })
                 }
             }
         }

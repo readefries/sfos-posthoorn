@@ -53,17 +53,37 @@ QStringList SendingAddresses::patternsOf(const QSettings &settings, const QMailA
     return AddressPatterns::parse(settings.value(settingsKey(id)).toString());
 }
 
-QString SendingAddresses::patterns(int accountId) const
+QStringList SendingAddresses::patterns(int accountId) const
 {
-    return patternsOf(m_settings, QMailAccountId(accountId)).join(QStringLiteral(", "));
+    return patternsOf(m_settings, QMailAccountId(accountId));
 }
 
-void SendingAddresses::setPatterns(int accountId, const QString &text)
+bool SendingAddresses::addPattern(int accountId, const QString &pattern)
+{
+    const QStringList parsed = AddressPatterns::parse(pattern);
+    // One pattern, and a whole one: "a@b c" isn't.
+    if (parsed.size() != 1 || parsed.first() != pattern.trimmed().toLower())
+        return false;
+    const QMailAccountId id(accountId);
+    QStringList patterns = patternsOf(m_settings, id);
+    if (patterns.contains(parsed.first()))
+        return false;
+    patterns.append(parsed.first());
+    store(id, patterns);
+    return true;
+}
+
+void SendingAddresses::removePattern(int accountId, const QString &pattern)
 {
     const QMailAccountId id(accountId);
-    const QStringList patterns = AddressPatterns::parse(text);
-    if (patterns == patternsOf(m_settings, id))
-        return;
+    QStringList patterns = patternsOf(m_settings, id);
+    if (patterns.removeAll(pattern.trimmed().toLower()) > 0)
+        store(id, patterns);
+}
+
+void SendingAddresses::store(const QMailAccountId &id, const QStringList &patterns)
+{
+    // As text that parse() reads back.
     if (patterns.isEmpty())
         m_settings.remove(settingsKey(id));
     else
