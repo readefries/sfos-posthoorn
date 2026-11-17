@@ -12,7 +12,7 @@
 UnifiedMessageListModel::UnifiedMessageListModel(QObject *parent)
     : QMailMessageListModel(parent)
 {
-    setSortKey(QMailMessageSortKey::timeStamp(Qt::DescendingOrder));
+    updateSortKey();
 
     connect(this, &QAbstractItemModel::rowsInserted, this, &UnifiedMessageListModel::countChanged);
     connect(this, &QAbstractItemModel::rowsRemoved, this, &UnifiedMessageListModel::countChanged);
@@ -23,6 +23,16 @@ UnifiedMessageListModel::UnifiedMessageListModel(QObject *parent)
     connect(this, &QAbstractItemModel::dataChanged, this, &UnifiedMessageListModel::unreadCountChanged);
     connect(QMailStore::instance(), &QMailStore::messagesRemoved,
             this, &UnifiedMessageListModel::onMessagesRemoved);
+
+    // QMailMessageListModel moves a changed message only when its neighbours are out of order,
+    // and doesn't tell the view about a moved row's new data: starring one with starred mail first
+    // left it unstarred on screen, at the wrong place. So after changes, the rows are put in order
+    // and drawn again here.
+    m_refreshTimer.setSingleShot(true);
+    m_refreshTimer.setInterval(100);
+    connect(&m_refreshTimer, &QTimer::timeout, this, &UnifiedMessageListModel::refreshRows);
+    connect(QMailStore::instance(), &QMailStore::messagesUpdated,
+            this, &UnifiedMessageListModel::onMessagesUpdated);
 
     // Grouping again after changes, once a burst of them (a sync) is over.
     m_regroupTimer.setSingleShot(true);
@@ -61,6 +71,7 @@ QHash<int, QByteArray> UnifiedMessageListModel::roleNames() const
     roles.insert(StarredRole, "starred");
     roles.insert(ThreadIdRole, "threadId");
     roles.insert(ThreadCountRole, "threadCount");
+    roles.insert(SortSectionRole, "sortSection");
     roles.insert(SelectedRole, "selected");
     return roles;
 }
@@ -81,6 +92,77 @@ void UnifiedMessageListModel::setUnreadOnly(bool unreadOnly)
     m_unreadOnly = unreadOnly;
     updateKey();
     emit unreadOnlyChanged();
+}
+
+void UnifiedMessageListModel::setSortOrder(SortOrder order)
+{
+    if (order == m_sortOrder)
+        return;
+    m_sortOrder = order;
+    updateSortKey();
+    emit sortOrderChanged();
+}
+
+void UnifiedMessageListModel::setStarredFirst(bool first)
+{
+    if (first == m_starredFirst)
+        return;
+    m_starredFirst = first;
+    updateSortKey();
+    emit starredFirstChanged();
+}
+
+void UnifiedMessageListModel::setUnreadFirst(bool first)
+{
+    if (first == m_unreadFirst)
+        return;
+    m_unreadFirst = first;
+    updateSortKey();
+    emit unreadFirstChanged();
+}
+
+void UnifiedMessageListModel::updateSortKey()
+{
+    QMailMessageSortKey key;
+    if (m_starredFirst)
+        key = QMailMessageSortKey::status(QMailMessage::Important, Qt::DescendingOrder);
+    // Without the Read flag first.
+    if (m_unreadFirst)
+        key = key & QMailMessageSortKey::status(QMailMessage::Read, Qt::AscendingOrder);
+    if (m_sortOrder == BySender)
+        key = key & QMailMessageSortKey::sender(Qt::AscendingOrder);
+    else if (m_sortOrder == BySenderDescending)
+        key = key & QMailMessageSortKey::sender(Qt::DescendingOrder);
+    else if (m_sortOrder == BySize)
+        key = key & QMailMessageSortKey::size(Qt::DescendingOrder);
+    key = key & QMailMessageSortKey::timeStamp(m_sortOrder == OldestFirst ? Qt::AscendingOrder
+                                                                          : Qt::DescendingOrder);
+    setSortKey(key);
+}
+
+void UnifiedMessageListModel::onMessagesUpdated(const QMailMessageIdList &ids)
+{
+    for (const QMailMessageId &id : ids) {
+        if (indexFromId(id).isValid()) {
+            m_refreshTimer.start();
+            return;
+        }
+    }
+}
+
+void UnifiedMessageListModel::refreshRows()
+{
+    const int rows = rowCount();
+    if (rows == 0)
+        return;
+    const QMailMessageIdList ordered = QMailStore::instance()->queryMessages(key(), sortKey());
+    bool inOrder = ordered.size() == rows;
+    for (int row = 0; inOrder && row < rows; ++row)
+        inOrder = idFromIndex(index(row)) == ordered.at(row);
+    if (inOrder)
+        emit dataChanged(index(0), index(rows - 1));
+    else
+        fullRefresh(false);
 }
 
 void UnifiedMessageListModel::setThreaded(bool threaded)
@@ -331,6 +413,22 @@ QVariant UnifiedMessageListModel::data(const QMailMessageMetaData &metaData, int
         return metaData.date().toLocalTime();
     case TimeSectionRole:
         return metaData.date().toLocalTime().date();
+    case SortSectionRole:
+        if (m_starredFirst && (metaData.status() & QMailMessage::Important))
+            return QStringLiteral("starred");
+        if (m_unreadFirst && !(metaData.status() & QMailMessage::Read))
+            return QStringLiteral("unread");
+        switch (m_sortOrder) {
+        case ByDate:
+        case OldestFirst:
+            return metaData.date().toLocalTime().date().toString(Qt::ISODate);
+        case BySender:
+        case BySenderDescending:
+            return metaData.from().name().isEmpty() ? metaData.from().address() : metaData.from().name();
+        case BySize:
+            break;
+        }
+        return QString();
     case ReadStatusRole:
         if (m_members.contains(metaData.id())) {
             for (const QMailMessageId &id : m_members.value(metaData.id())) {

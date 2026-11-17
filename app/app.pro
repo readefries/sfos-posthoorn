@@ -82,5 +82,6 @@ DISTFILES += \
     qml/pages/SignatureDialog.qml \
     qml/pages/SignaturesPage.qml \
     qml/pages/SnoozePage.qml \
+    qml/pages/SortPage.qml \
     qml/pages/VirtualFolderItem.qml \
     qml/pages/UnifiedFoldersPage.qml
