@@ -96,7 +96,7 @@
 <context>
     <name>ComposePage</name>
     <message>
-        <location filename="../qml/pages/ComposePage.qml" line="+133"/>
+        <location filename="../qml/pages/ComposePage.qml" line="+155"/>
         <source>No signature</source>
         <translation type="unfinished"></translation>
     </message>
@@ -141,7 +141,7 @@
         <translation>Joindre</translation>
     </message>
     <message>
-        <location line="+44"/>
+        <location line="+40"/>
         <source>Delete draft</source>
         <translation>Supprimer le brouillon</translation>
     </message>
@@ -487,7 +487,7 @@
         <translation>sans description</translation>
     </message>
     <message>
-        <location line="+75"/>
+        <location line="+83"/>
         <source>Re: </source>
         <extracomment>Prefix for the subject of a reply</extracomment>
         <translation>Re : </translation>
@@ -983,7 +983,7 @@
 <context>
     <name>OutgoingMessage</name>
     <message>
-        <location filename="../src/outgoingmessage.cpp" line="+287"/>
+        <location filename="../src/outgoingmessage.cpp" line="+259"/>
         <source>No account sends from %1</source>
         <translation>Aucun compte n&apos;envoie depuis %1</translation>
     </message>
@@ -1258,7 +1258,7 @@
 <context>
     <name>SettingsPage</name>
     <message>
-        <location filename="../qml/pages/SettingsPage.qml" line="+19"/>
+        <location filename="../qml/pages/SettingsPage.qml" line="+20"/>
         <source>Settings</source>
         <translation>Réglages</translation>
     </message>
@@ -1421,6 +1421,21 @@
         <location line="+2"/>
         <source>%1 (found by its name)</source>
         <translation>%1 (trouvé par son nom)</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Reply addresses</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>A reply goes out from the address a mail was delivered to when it matches one of these, such as *@example.com or me+*@example.com. * stands for anything but @. The account&apos;s mail server has to accept sending from them.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>Patterns for %1</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

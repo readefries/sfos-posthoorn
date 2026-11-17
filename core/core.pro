@@ -6,6 +6,7 @@ CONFIG += staticlib
 QT = core
 
 HEADERS += \
+    addresspatterns.h \
     archivefolder.h \
     flowedtext.h \
     linkcleaner.h \
@@ -13,6 +14,7 @@ HEADERS += \
     mailcontent.h \
     maildraft.h
 SOURCES += \
+    addresspatterns.cpp \
     archivefolder.cpp \
     flowedtext.cpp \
     linkcleaner.cpp \

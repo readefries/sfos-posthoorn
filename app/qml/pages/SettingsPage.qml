@@ -3,7 +3,8 @@ import QtQuick 2.0
 import Sailfish.Silica 1.0
 import Posthoorn 1.0
 
-// The unified inbox's folders and each account's archive folder.
+// The unified inbox's folders, each account's archive folder and the patterns of addresses it
+// replies from.
 Page {
     id: page
 
@@ -207,6 +208,50 @@ Page {
                             truncationMode: TruncationMode.Fade
                         }
                     }
+                }
+            }
+
+            SectionHeader {
+                text: qsTr("Reply addresses")
+            }
+
+            Label {
+                x: Theme.horizontalPageMargin
+                width: parent.width - 2 * Theme.horizontalPageMargin
+                text: qsTr("A reply goes out from the address a mail was delivered to when it matches one of "
+                           + "these, such as *@example.com or me+*@example.com. * stands for anything but @. "
+                           + "The account's mail server has to accept sending from them.")
+                wrapMode: Text.Wrap
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.secondaryHighlightColor
+            }
+
+            Repeater {
+                model: app.accounts
+
+                TextField {
+                    id: patternsField
+
+                    readonly property int accountId: model.mailAccountId
+
+                    function save() {
+                        SendingAddresses.setPatterns(accountId, text)
+                        // As stored: in lower case, without what was left out.
+                        text = SendingAddresses.patterns(accountId)
+                    }
+
+                    width: column.width
+                    label: model.displayName
+                    placeholderText: qsTr("Patterns for %1").arg(model.displayName)
+                    text: SendingAddresses.patterns(accountId)
+                    inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                    EnterKey.iconSource: "image://theme/icon-m-enter-close"
+                    EnterKey.onClicked: focus = false
+                    onActiveFocusChanged: {
+                        if (!activeFocus)
+                            save()
+                    }
+                    Component.onDestruction: save()
                 }
             }
         }

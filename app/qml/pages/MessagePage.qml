@@ -124,6 +124,12 @@ Page {
         return result
     }
 
+    // The address the mail was delivered to when it matches the account's patterns, otherwise the
+    // account's address or alias it was sent to, otherwise the account's.
+    function sendingAddress() {
+        return SendingAddresses.replyAddress(page.messageId) || message.recipientAddress || message.accountAddress
+    }
+
     // Quotes only the selected text when there is a selection.
     function reply(all) {
         var selection = body.selectedText
@@ -131,7 +137,9 @@ Page {
         var to = [sender]
         var cc = []
         if (all) {
+            // The accounts' addresses, and those of theirs that match an account's patterns.
             var own = array(app.accounts.allEmailAddresses())
+            own = own.concat(array(SendingAddresses.ownAmong(array(message.to).concat(array(message.cc)))))
             to = array(Addresses.without(to.concat(array(message.to)), own))
             cc = array(Addresses.without(array(message.cc), own.concat(to)))
             // Replying to all on a mail of one's own.
@@ -139,7 +147,7 @@ Page {
                 to = [sender]
         }
         pageStack.push(Qt.resolvedUrl("ComposePage.qml"), {
-                           from: message.recipientAddress || message.accountAddress,
+                           from: page.sendingAddress(),
                            to: to.join(", "),
                            cc: cc.join(", "),
                            //: Prefix for the subject of a reply
@@ -165,7 +173,7 @@ Page {
         if (message.cc.length > 0)
             header.push(qsTr("Cc: %1").arg(message.cc.join(", ")))
         pageStack.push(Qt.resolvedUrl("ComposePage.qml"), {
-                           from: message.recipientAddress || message.accountAddress,
+                           from: page.sendingAddress(),
                            //: Prefix for the subject of a forwarded mail
                            subject: prefixed(qsTr("Fwd: "), /^\s*(fwd?|wg|doorst|tr)\s*:/i),
                            responseType: EmailMessage.Forward,

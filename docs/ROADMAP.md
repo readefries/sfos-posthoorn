@@ -121,6 +121,11 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
 - ✓ New mail, reply, reply all, forward (text only), from the message page's action bar and the
   pulleys. From picks among the accounts' addresses and aliases; a reply defaults to the address
   the mail was sent to. Reply all leaves out one's own addresses.
+- ✓ Reply addresses by pattern (`SendingAddresses`, `core/addresspatterns.cpp`), as Thunderbird's
+  "reply from this identity when delivery headers match": per account in Settings, such as
+  `*@example.com` for a catch-all domain. A reply or forward goes out from the address the mail
+  was delivered to (Delivered-To, X-Original-To, …, then To and Cc) when it matches, through that
+  account; reply all leaves those addresses out too.
 - ✓ Quoting: an attribution line, the original as `>` lines without the sender's signature and,
   unless asked for, without what it quoted itself; shown the way the reader shows quotes. Reply
   above (default) or below the quote, or without it.

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include "addresspatterns.h"
 #include "archivefolder.h"
 #include "flowedtext.h"
 #include "linkcleaner.h"
@@ -84,6 +85,9 @@ private slots:
     void cleanLinks_data();
     void cleanLinks();
     void trackingImages();
+    void addressPatterns();
+    void addressPatternsParse();
+    void addressPatternsFirstMatch();
 };
 
 void TestMailContent::paragraphsAndWhitespace()
@@ -608,6 +612,55 @@ void TestMailContent::trackingImages()
     QVERIFY(!LinkCleaner::isTrackingImage(QStringLiteral("https://cdn.example.org/images/logo.png")));
     QVERIFY(!LinkCleaner::isTrackingImage(QStringLiteral("https://www.facebook.com/images/fb_icon.png")));
     QVERIFY(!LinkCleaner::isTrackingImage(QStringLiteral("data:image/png;base64,AAAA")));
+}
+
+void TestMailContent::addressPatterns()
+{
+    const QStringList patterns = AddressPatterns::parse(
+                QStringLiteral("*@mail.example.com me+*@example.com"));
+    QVERIFY(AddressPatterns::matches(QStringLiteral("shop@mail.example.com"), patterns));
+    QVERIFY(AddressPatterns::matches(QStringLiteral("Shop@Mail.Example.COM"), patterns));
+    QVERIFY(AddressPatterns::matches(QStringLiteral("me+bank@example.com"), patterns));
+    QVERIFY(AddressPatterns::matches(QStringLiteral("me+@example.com"), patterns));
+    // * doesn't stretch over the @, nor do patterns match a part of an address.
+    QVERIFY(!AddressPatterns::matches(QStringLiteral("a@b@mail.example.com"), patterns));
+    QVERIFY(!AddressPatterns::matches(QStringLiteral("shop@other.mail.example.com"), patterns));
+    QVERIFY(!AddressPatterns::matches(QStringLiteral("someone+bank@example.com"), patterns));
+    QVERIFY(!AddressPatterns::matches(QStringLiteral("me@example.com"), patterns));
+    QVERIFY(!AddressPatterns::matches(QStringLiteral("shop@mail.example.com.evil.org"), patterns));
+    QVERIFY(!AddressPatterns::matches(QString(), patterns));
+    // Dots are dots, not any character.
+    QVERIFY(!AddressPatterns::matches(QStringLiteral("x@mailXexample.com"), patterns));
+    QVERIFY(AddressPatterns::matches(QStringLiteral("a@mail.example.org"),
+                                     AddressPatterns::parse(QStringLiteral("*@*.example.org"))));
+}
+
+void TestMailContent::addressPatternsParse()
+{
+    QCOMPARE(AddressPatterns::parse(QStringLiteral(" *@A.Example.com,  b+*@example.com;\n*@a.example.com ")),
+             QStringList() << QStringLiteral("*@a.example.com") << QStringLiteral("b+*@example.com"));
+    // Too wide, or not an address.
+    QCOMPARE(AddressPatterns::parse(QStringLiteral("* *@* *@ @example.com **@*** a@b@example.com example.com")),
+             QStringList());
+}
+
+void TestMailContent::addressPatternsFirstMatch()
+{
+    const QStringList patterns = AddressPatterns::parse(QStringLiteral("*@mail.example.com"));
+    // Delivery headers first, then To and Cc, as the caller passes them.
+    QCOMPARE(AddressPatterns::firstMatch(QStringList()
+                                         << QStringLiteral("<Shop@mail.example.com>")
+                                         << QStringLiteral("\"Doe, Jan\" <jan@example.org>, list@mail.example.com"),
+                                         patterns),
+             QStringLiteral("shop@mail.example.com"));
+    QCOMPARE(AddressPatterns::firstMatch(QStringList()
+                                         << QStringLiteral("someone@example.org")
+                                         << QStringLiteral("\"Doe, Jan\" <jan@example.org>, List <list@mail.example.com>"),
+                                         patterns),
+             QStringLiteral("list@mail.example.com"));
+    QCOMPARE(AddressPatterns::firstMatch(QStringList() << QStringLiteral("jan@example.org"), patterns), QString());
+    QCOMPARE(AddressPatterns::firstMatch(QStringList() << QStringLiteral("shop@mail.example.com"),
+                                         QStringList()), QString());
 }
 
 QTEST_APPLESS_MAIN(TestMailContent)
