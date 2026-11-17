@@ -96,9 +96,12 @@ Page {
                             MenuItem {
                                 text: qsTr("Remove")
                                 onClicked: {
+                                    // Taken now: when the remorse is over, the item's context
+                                    // (page, modelData) is gone.
+                                    var accountId = page.accountId
                                     var pattern = modelData
                                     item.remorseDelete(function() {
-                                        SendingAddresses.removePattern(page.accountId, pattern)
+                                        SendingAddresses.removePattern(accountId, pattern)
                                     })
                                 }
                             }
