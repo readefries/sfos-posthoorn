@@ -1412,7 +1412,76 @@
         <translation>Aux messages signés, pour que les destinataires puissent vérifier la signature et vous écrire de façon chiffrée</translation>
     </message>
     <message>
+        <location line="+12"/>
+        <source>Remember passphrase</source>
+        <translation>Retenir la phrase secrète</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>After it was last used, for decrypting and signing</source>
+        <translation>Après sa dernière utilisation, pour déchiffrer et signer</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Never</source>
+        <translation>Jamais</translation>
+    </message>
+    <message numerus="yes">
+        <location line="+1"/>
+        <location line="+1"/>
+        <location line="+1"/>
+        <source>%n minute(s)</source>
+        <translation>
+            <numerusform>%n minute</numerusform>
+            <numerusform>%n minutes</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location line="+1"/>
+        <location line="+1"/>
+        <source>%n hour(s)</source>
+        <translation>
+            <numerusform>%n heure</numerusform>
+            <numerusform>%n heures</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Until Posthoorn closes</source>
+        <translation>Jusqu&apos;à la fermeture de Posthoorn</translation>
+    </message>
+    <message>
         <location line="+6"/>
+        <source>Forget it when the phone locks</source>
+        <translation>L&apos;oublier au verrouillage du téléphone</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Only with a lock code</source>
+        <translation>Seulement avec un code de verrouillage</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Let gpg-agent keep it</source>
+        <translation>La confier à gpg-agent</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>GnuPG&apos;s own agent remembers it rather than Posthoorn, in memory that&apos;s never swapped out, also after Posthoorn closes</source>
+        <translation>L&apos;agent de GnuPG la retient plutôt que Posthoorn, dans une mémoire jamais écrite sur le stockage, même après la fermeture de Posthoorn</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Needs posthoorn-gpg-agent, which runs from the next login after installing</source>
+        <translation>Nécessite posthoorn-gpg-agent, qui fonctionne à partir de la prochaine connexion après l&apos;installation</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Forget passphrase now</source>
+        <translation>Oublier la phrase secrète maintenant</translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>Unified inbox</source>
         <translation>Boîte de réception unifiée</translation>
     </message>

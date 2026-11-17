@@ -1,0 +1,9 @@
+# While Posthoorn's gpg-agent runs: stops it when the phone locks, with what it remembered, when
+# Settings → PGP says to forget the passphrase then and gpg-agent keeps it.
+[Unit]
+Description=Forget the passphrase in Posthoorn's gpg-agent when the phone locks
+BindsTo=posthoorn-gpg-agent.service
+After=posthoorn-gpg-agent.service
+
+[Service]
+ExecStart=/usr/bin/posthoorn --forget-on-lock

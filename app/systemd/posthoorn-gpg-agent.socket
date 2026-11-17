@@ -1,0 +1,15 @@
+# Posthoorn's gpg-agent, outside the app's sandbox, so it can remember the passphrase of one's key
+# after Posthoorn closes (Settings → PGP → Let gpg-agent keep it). Posthoorn's gpg reaches it
+# through a redirect in its sandbox (GpgJob::setUpSystemAgent()).
+[Unit]
+Description=Posthoorn's gpg-agent socket
+
+[Socket]
+ListenStream=%h/.local/share/nl.readefries/posthoorn/gnupg/S.gpg-agent
+SocketMode=0600
+DirectoryMode=0700
+# A socket left behind would look like a working agent to Posthoorn.
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

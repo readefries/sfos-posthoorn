@@ -1,30 +1,51 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "gpgjob.h"
 
-#include <QDateTime>
+#include "passphrasecache.h"
+
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QStandardPaths>
+
+#include <sys/stat.h>
 
 namespace {
 
 // posthoorn-gnupg's prefix, see gnupg/rpm/posthoorn-gnupg.spec.
 const QString gnupgBin = QStringLiteral("/usr/libexec/posthoorn/gnupg/bin");
 
-// How long a passphrase is kept, as gpg-agent would.
-const int passphraseMinutes = 10;
+int jobs = 0;
+bool outsideSandbox = false;
 
-int runningJobs = 0;
-QString rememberedPassphrase;
-QDateTime passphraseExpiry;
+bool isSocket(const QString &path)
+{
+    struct stat info;
+    return ::stat(QFile::encodeName(path).constData(), &info) == 0 && S_ISSOCK(info.st_mode);
+}
 
-// Ends gpg-agent, which gpg started as a daemon.
-void stopAgent()
+// Runs one of GnuPG's tools and waits for it: its exit code, and what it wrote, trimmed.
+int runTool(const QString &tool, const QStringList &arguments, QString *output = nullptr)
+{
+    QProcess process;
+    process.start(gnupgBin + QLatin1Char('/') + tool,
+                  QStringList() << QStringLiteral("--homedir") << GpgJob::homeDirectory() << arguments);
+    if (!process.waitForFinished(5000)) {
+        process.kill();
+        process.waitForFinished(1000);
+        return -1;
+    }
+    if (output)
+        *output = QString::fromUtf8(process.readAllStandardOutput()).trimmed();
+    return process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -1;
+}
+
+void runGpgconf(const QString &action)
 {
     QProcess::startDetached(gnupgBin + QStringLiteral("/gpgconf"),
                             QStringList() << QStringLiteral("--homedir") << GpgJob::homeDirectory()
-                                          << QStringLiteral("--kill") << QStringLiteral("gpg-agent"));
+                                          << action << QStringLiteral("gpg-agent"));
 }
 
 } // namespace
@@ -37,7 +58,7 @@ GpgJob::GpgJob(QObject *parent)
     connect(&m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart) {
             qWarning() << "gpg didn't start:" << m_process.errorString();
-            --runningJobs;
+            --jobs;
             m_exitCode = -1;
             emit finished();
         }
@@ -68,17 +89,77 @@ QString GpgJob::homeDirectory()
 
 QString GpgJob::passphrase()
 {
-    if (passphraseExpiry.isValid() && QDateTime::currentDateTimeUtc() > passphraseExpiry) {
-        rememberedPassphrase.clear();
-        passphraseExpiry = QDateTime();
-    }
-    return rememberedPassphrase;
+    PassphraseCache *cache = PassphraseCache::instance();
+    return cache ? cache->passphrase() : QString();
 }
 
 void GpgJob::rememberPassphrase(const QString &passphrase)
 {
-    rememberedPassphrase = passphrase;
-    passphraseExpiry = QDateTime::currentDateTimeUtc().addSecs(passphraseMinutes * 60);
+    if (PassphraseCache *cache = PassphraseCache::instance())
+        cache->remember(passphrase);
+}
+
+int GpgJob::runningJobs()
+{
+    return jobs;
+}
+
+bool GpgJob::setUpSystemAgent()
+{
+    outsideSandbox = false;
+    const QString socket = homeDirectory() + QStringLiteral("/S.gpg-agent");
+    if (!isSocket(socket))
+        return false;
+
+    // gpg looks for the agent in its socket folder, which is the sandbox's own (/run/user/<uid>/
+    // gnupg/d.<hash>): there, a redirect to the socket in the keyring's folder, which the sandbox
+    // shares.
+    runTool(QStringLiteral("gpgconf"), QStringList() << QStringLiteral("--create-socketdir"));
+    QString expected;
+    runTool(QStringLiteral("gpgconf"), QStringList() << QStringLiteral("--list-dirs") << QStringLiteral("agent-socket"),
+            &expected);
+    QString redirect;
+    if (!expected.isEmpty() && expected != socket) {
+        // An agent of the app's own, left from before, would be found first.
+        if (isSocket(expected))
+            runTool(QStringLiteral("gpgconf"), QStringList() << QStringLiteral("--kill") << QStringLiteral("gpg-agent"));
+        QFile::remove(expected);
+        QSaveFile file(expected);
+        if (!file.open(QIODevice::WriteOnly)
+                || file.write("%Assuan%\nsocket=" + QFile::encodeName(socket) + '\n') < 0
+                || !file.commit()) {
+            qWarning() << "Can't point gpg to the agent outside the sandbox:" << file.errorString();
+            return false;
+        }
+        redirect = expected;
+    }
+    // Starts it, through systemd, when it isn't running yet.
+    if (runTool(QStringLiteral("gpg-connect-agent"), QStringList() << QStringLiteral("--no-autostart")
+                << QStringLiteral("/bye")) != 0) {
+        qWarning() << "The gpg-agent outside the sandbox doesn't answer; using one of the app's own";
+        if (!redirect.isEmpty())
+            QFile::remove(redirect);
+        return false;
+    }
+    qDebug() << "Using the gpg-agent outside the sandbox";
+    outsideSandbox = true;
+    return true;
+}
+
+bool GpgJob::systemAgent()
+{
+    return outsideSandbox;
+}
+
+void GpgJob::stopAgent()
+{
+    qDebug() << "Stopping gpg-agent";
+    runGpgconf(QStringLiteral("--kill"));
+}
+
+void GpgJob::reloadAgent()
+{
+    runGpgconf(QStringLiteral("--reload"));
 }
 
 QByteArray GpgJob::canonical(const QByteArray &data)
@@ -96,7 +177,7 @@ QByteArray GpgJob::canonical(const QByteArray &data)
 
 void GpgJob::start(const QStringList &arguments, const QByteArray &input)
 {
-    ++runningJobs;
+    ++jobs;
     m_output.clear();
     m_errors.clear();
     m_status.clear();
@@ -141,7 +222,8 @@ QStringList GpgJob::statusArguments(const QString &keyword) const
 
 void GpgJob::onFinished(int exitCode, QProcess::ExitStatus status)
 {
-    if (--runningJobs == 0)
+    // The app's own, in the sandbox; posthoorn-gpg-agent may keep the passphrase.
+    if (--jobs == 0 && !outsideSandbox)
         stopAgent();
     m_exitCode = status == QProcess::NormalExit ? exitCode : -1;
     m_output = m_process.readAllStandardOutput();

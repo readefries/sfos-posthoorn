@@ -1,0 +1,11 @@
+# Started by posthoorn-gpg-agent.socket when gpg first connects. Remembers the passphrase as long
+# as Posthoorn's settings say, in gpg-agent.conf, which Posthoorn writes.
+[Unit]
+Description=Posthoorn's gpg-agent
+Requires=posthoorn-gpg-agent.socket
+# Forgets the passphrase when the phone locks, if chosen, also while Posthoorn is closed.
+Wants=posthoorn-forget-on-lock.service
+
+[Service]
+ExecStart=/usr/libexec/posthoorn/gnupg/bin/gpg-agent --homedir %h/.local/share/nl.readefries/posthoorn/gnupg --supervised
+ExecReload=/usr/libexec/posthoorn/gnupg/bin/gpgconf --homedir %h/.local/share/nl.readefries/posthoorn/gnupg --reload gpg-agent
