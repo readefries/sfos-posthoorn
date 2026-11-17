@@ -46,8 +46,10 @@ Page {
                 MenuItem {
                     text: qsTr("Remove")
                     onClicked: {
+                        // Taken now: when the remorse is over, the item's context may be gone.
+                        var keys = app.pgpKeys
                         var fingerprint = modelData.fingerprint
-                        item.remorseDelete(function() { app.pgpKeys.remove(fingerprint) })
+                        item.remorseDelete(function() { keys.remove(fingerprint) })
                     }
                 }
             }

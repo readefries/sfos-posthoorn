@@ -96,12 +96,14 @@ Page {
                             MenuItem {
                                 text: qsTr("Remove")
                                 onClicked: {
-                                    // Taken now: when the remorse is over, the item's context
-                                    // (page, modelData) is gone.
+                                    // Taken now: when the remorse is over, the item's context is
+                                    // gone, and with it every name: page, modelData, even the
+                                    // SendingAddresses singleton.
+                                    var addresses = SendingAddresses
                                     var accountId = page.accountId
                                     var pattern = modelData
                                     item.remorseDelete(function() {
-                                        SendingAddresses.removePattern(accountId, pattern)
+                                        addresses.removePattern(accountId, pattern)
                                     })
                                 }
                             }

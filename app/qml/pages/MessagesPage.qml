@@ -582,7 +582,9 @@ Page {
                     text: qsTr("Delete")
                     onClicked: {
                         var ids = item.rowIds()
-                        item.remorseDelete(function() { app.emailAgent.deleteMessagesFromVariantList(ids) })
+                        // Taken now: when the remorse is over, the item's context may be gone.
+                        var agent = app.emailAgent
+                        item.remorseDelete(function() { agent.deleteMessagesFromVariantList(ids) })
                     }
                 }
             }
