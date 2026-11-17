@@ -43,15 +43,20 @@ if ssh "$host" rpm -q "$gnupg_name" >/dev/null 2>&1; then
     gnupg=
 fi
 
-# posthoorn, and posthoorn-default-mail for those who use it in place of Jolla's Mail.
+# posthoorn, posthoorn-notify-filter (which mutes accounts' notifications), and
+# posthoorn-default-mail for those who use it in place of Jolla's Mail.
 rpm=$(ls "$build"/RPMS/posthoorn-[0-9]*.rpm)
+notify_filter=$(ls "$build"/RPMS/posthoorn-notify-filter-*.rpm)
 default_mail=$(ls "$build"/RPMS/posthoorn-default-mail-*.rpm)
-scp -q "$rpm" "$default_mail" $gnupg "$host:"
+scp -q "$rpm" "$notify_filter" "$default_mail" $gnupg "$host:"
 echo
-echo "Copied $(basename "$rpm") and $(basename "$default_mail")${gnupg:+ and $(basename "$gnupg")} to $host."
-extra=${gnupg:+ ./$(basename "$gnupg")}
-# Stopping the app afterwards, as a running one keeps the old version.
-stop="pkill -f '^/usr/bin/posthoorn'"
+echo "Copied $(basename "$rpm"), $(basename "$notify_filter") and $(basename "$default_mail")${gnupg:+ and $(basename "$gnupg")} to $host."
+# posthoorn-notify-filter requires the exact same version of posthoorn, so it's always installed
+# with it.
+extra=" ./$(basename "$notify_filter")${gnupg:+ ./$(basename "$gnupg")}"
+# Stopping the app afterwards, as a running one keeps the old version, and restarting the
+# messageserver, which loads the notify filter only when it starts.
+stop="pkill -f '^/usr/bin/posthoorn'; systemctl --user restart messageserver5"
 # With posthoorn-default-mail installed both have to be updated together: it requires the exact
 # same version of posthoorn.
 if ssh "$host" rpm -q posthoorn-default-mail >/dev/null 2>&1; then
