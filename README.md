@@ -48,6 +48,11 @@ and sending are done by the messageserver. It can be used next to Jolla's Mail, 
 - New mail, reply, reply all and forward, from any of the accounts' addresses and aliases, with
   recipient suggestions from Contacts. Quotes above or below the reply, or none; attachments,
   also the original's when forwarding.
+- Reply addresses by pattern, per account in Settings → Reply addresses: with `*@example.com` or
+  `me+*@example.com` (`*` is anything but `@`), a reply goes out from the address the mail was
+  delivered to (`Delivered-To`, `X-Original-To`, …, then To and Cc) when it matches, as
+  Thunderbird's "reply from this identity when delivery headers match". For catch-all domains and
+  `+` addresses; the account's mail server has to accept sending from them.
 - Signatures: the account's (from Settings → Accounts) or signatures of one's own, kept in
   Posthoorn, with one chosen per sending address and changeable per mail.
 - Drafts are saved when leaving and can be continued. Mail goes out as `format=flowed` plain text.
@@ -89,8 +94,8 @@ database, which only Privileged apps can open. It's meant for SailfishOS:Chum.
 
 | Path    | What |
 |---------|------|
-| `core/` | Static library without UI, with unit tests: reducing HTML and plain text to structure (`mailcontent`), cleaning links (`linkcleaner`), `format=flowed` (`flowedtext`), mail addresses, splitting drafts (`maildraft`) and recognising archive folders. Qt Core only. |
-| `app/src/` | Glue to QMF and QML: the message list model (folders, unified inbox, search), building outgoing mail, starring, archive folders, saved state, and `MailUiService`, the `com.jolla.email.ui` D-Bus service. |
+| `core/` | Static library without UI, with unit tests: reducing HTML and plain text to structure (`mailcontent`), cleaning links (`linkcleaner`), `format=flowed` (`flowedtext`), mail addresses and patterns of them (`addresspatterns`), splitting drafts (`maildraft`) and recognising archive folders. Qt Core only. |
+| `app/src/` | Glue to QMF and QML: the message list model (folders, unified inbox, search), building outgoing mail, the addresses to send from (`sendingaddresses`), starring, archive folders, saved state, and `MailUiService`, the `com.jolla.email.ui` D-Bus service. |
 | `app/qml/` | The Silica UI. |
 | `app/translations/` | `posthoorn.ts`, the texts to translate (made by the build), and a `posthoorn-<language>.ts` per translation. |
 | `notifyfilter/` | `posthoorn-notify-filter`, the messageserver plugin that keeps the accounts switched off in Settings → Notifications quiet. |
@@ -107,8 +112,10 @@ With the Sailfish SDK:
     scripts/deploy.sh [ssh-host]
 
 builds the RPMs, running the tests, and copies them to the phone (default host `sailfish`). It
-prints the line to install them with; each build gets its own release (`…dev<time>.g<commit>`), so
-`pkcon install-local` never skips one as already installed.
+prints the line to install them with: `posthoorn` and `posthoorn-notify-filter`, with
+`posthoorn-default-mail` when the phone has it, then stopping the app and restarting the
+messageserver so both run the new version. Each build gets its own release
+(`…dev<time>.g<commit>`), so `pkcon install-local` never skips one as already installed.
 
 `scripts/build-gnupg.sh [target]` builds `posthoorn-gnupg` the same way; it's separate, so app
 builds don't rebuild GnuPG.
@@ -182,6 +189,7 @@ The texts are `qsTr()` in `app/qml` and `tr()` in `app/src`. The build collects 
 `app/translations/posthoorn-<language>.ts` (`de`, `pt_BR`, …), add it to `TRANSLATIONS` in
 `app/app.pro`, and translate it, for instance with Qt Linguist. Posthoorn uses the phone's language
 when there's a translation for it.
+
 ## Notifications per account
 
 New-mail notifications aren't the app's: the system's mail service (QMF's messageserver) shows
