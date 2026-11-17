@@ -60,7 +60,7 @@ stop="pkill -f '^/usr/bin/posthoorn'; systemctl --user restart messageserver5"
 # With posthoorn-default-mail installed both have to be updated together: it requires the exact
 # same version of posthoorn.
 if ssh "$host" rpm -q posthoorn-default-mail >/dev/null 2>&1; then
-    echo "On the phone (posthoorn-default-mail is installed, so both):"
+    echo "On the phone (posthoorn-default-mail is installed, so with it):"
     echo "  devel-su pkcon install-local ./$(basename "$rpm") ./$(basename "$default_mail")$extra; $stop"
 else
     echo "On the phone:"
