@@ -58,7 +58,7 @@ class UnifiedMessageListModel : public QMailMessageModelBase
     // Unread rows above the read ones (below the starred ones with starredFirst).
     Q_PROPERTY(bool unreadFirst READ unreadFirst WRITE setUnreadFirst NOTIFY unreadFirstChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
-    // For the virtual Starred folder's count. Notifies on any change of the messages.
+    // The unread messages the rows stand for, as for the virtual Starred folder's count.
     Q_PROPERTY(int unreadCount READ unreadCount NOTIFY unreadCountChanged)
     Q_PROPERTY(int selectedMessageCount READ selectedMessageCount NOTIFY selectedMessageCountChanged)
 
@@ -126,7 +126,7 @@ public:
     // per account.
     Q_INVOKABLE void searchServer();
     int count() const { return rowCount(); }
-    int unreadCount() const { return unreadMessageIds().size(); }
+    int unreadCount() const;
     int selectedMessageCount() const { return m_selected.size(); }
 
     Q_INVOKABLE void selectMessage(int index);
@@ -170,8 +170,15 @@ private:
     void updateKey();
     // Sorts the rows again, after the order changed.
     void resort();
-    // The messages of key, in the order the list shows them.
-    QMailMessageIdList orderedIds(const QMailMessageKey &key) const;
+    // The rows of key, in the order the list shows them: with threaded the ones grouped, else
+    // from the store, which also sets what's unread.
+    QMailMessageIdList loadRows(const QMailMessageKey &key) const;
+    // What sorting needs of the messages.
+    QMailMessageKey::Properties sortProperties() const;
+    // The messages in the order the list shows them, and the unread ones among them.
+    QMailMessageIdList order(const QMailMessageMetaDataList &messages, QSet<QMailMessageId> *unread) const;
+    // unreadCountChanged(), when the count changed since last announced.
+    void announceUnreadCount();
     // Unread, or with threaded a conversation with an unread message.
     bool isUnread(const QMailMessageId &id, quint64 status) const;
     // After mail changed: the rows put in the order they should be in now, by moving, adding and
@@ -181,7 +188,8 @@ private:
     void removeRows(const QMailMessageIdList &ids);
     // force: set the key even when the rows are the same, as after the folders changed.
     void regroup(bool force = false);
-    void onStoreChanged();
+    // With threaded: grouped again when the changed messages are, or become, part of the list.
+    void onStoreChanged(const QMailMessageIdList &ids, bool removed);
     QMailMessageIdList membersOf(const QMailMessageId &id) const;
     void onMatched(const QMailMessageIdList &ids);
     void onBodySearchActivity();
@@ -199,12 +207,16 @@ private:
     // Changed messages in the list, to draw again once reorder() runs.
     QSet<QMailMessageId> m_changed;
     QTimer m_refreshTimer;
-    // With threaded: the messages grouped, each row's messages, the unread ones among them, and
-    // the rows' conversations' sizes.
+    // The unread messages the rows stand for, and how many were last announced.
+    mutable QSet<QMailMessageId> m_unread;
+    int m_announcedUnread = -1;
+    // With threaded: the messages grouped, the rows in order, each row's messages, all of them,
+    // each conversation's row, and the rows' conversations' sizes.
     QMailMessageKey m_threadedKey;
-    QMailMessageIdList m_rows;
+    QMailMessageIdList m_ordered;
     QHash<QMailMessageId, QMailMessageIdList> m_members;
-    QSet<QMailMessageId> m_unread;
+    QSet<QMailMessageId> m_allIds;
+    QHash<QMailThreadId, QMailMessageId> m_threadRows;
     mutable QHash<QMailThreadId, int> m_threadSizes;
     QTimer m_regroupTimer;
     QVariantMap m_search;
