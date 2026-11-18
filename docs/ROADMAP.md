@@ -116,6 +116,13 @@ first try at quoting the selection. Confirmed on a phone (SFOS 5.2) with an IMAP
   hours included (Buteo's sync schedule, run by msyncd even with the app closed). Posthoorn's
   Settings could show each account's schedule and open that page.
 
+- ✓ Large folders (asked about for an inbox of 15,000 mails): the unread count comes from what
+  the list loaded rather than from every row, announced once per update instead of once per row;
+  conversations are grouped again only when their messages change, from one query and without a
+  second one by thousands of ids; sorting works out dates and collation keys once per message.
+  `scripts/bench-messagelist.sh` times it on the phone in a store of its own: marking 20 mails
+  read went from about 60 s of CPU to 0.25 s, loading from 6 s to 0.2 s.
+
 ### 4. Compose
 
 - ✓ New mail, reply, reply all, forward (text only), from the message page's action bar and the
