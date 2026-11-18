@@ -7,7 +7,15 @@
 #include <qmailstore.h>
 #include <qmailthread.h>
 
+#include <QCollator>
+#include <QElapsedTimer>
+#include <QLoggingCategory>
+
 #include <algorithm>
+
+// How long the list's work takes, for large folders. Off unless enabled, as with
+// QT_LOGGING_RULES="posthoorn.list.debug=true".
+Q_LOGGING_CATEGORY(lcList, "posthoorn.list", QtInfoMsg)
 
 // QmfClient doesn't export QMailMessageModelImplementation (no QMF_EXPORT), so its destructor,
 // which is its key function, isn't there for us to link to, and nor are its vtable and typeinfo.
@@ -17,8 +25,9 @@ QMailMessageModelImplementation::~QMailMessageModelImplementation()
 {
 }
 
-// The rows: the messages of key, ordered by UnifiedMessageListModel::orderedIds(), loaded when
-// first asked for. Changes from the store are handled by the model (reorder(), removeRows()).
+// The rows: the messages of key, ordered by UnifiedMessageListModel::loadRows(), loaded when
+// first asked for. Changes from the store are handled by the model (reorder(), removeRows(), and
+// with threaded regroup()).
 class UnifiedMessageListModel::Rows : public QMailMessageModelImplementation
 {
 public:
@@ -57,7 +66,8 @@ public:
 
     bool processMessagesAdded(const QMailMessageIdList &ids) override
     {
-        if (m_loaded && !m_key.isNonMatching()
+        // With threaded, regroup() follows the store.
+        if (m_loaded && !m_model.m_threaded && !m_key.isNonMatching()
                 && QMailStore::instance()->countMessages(m_key & QMailMessageKey::id(ids)) > 0)
             m_model.m_refreshTimer.start();
         return true;
@@ -65,7 +75,7 @@ public:
 
     bool processMessagesUpdated(const QMailMessageIdList &ids) override
     {
-        if (!m_loaded || m_key.isNonMatching())
+        if (!m_loaded || m_model.m_threaded || m_key.isNonMatching())
             return true;
         bool relevant = false;
         for (const QMailMessageId &id : ids) {
@@ -91,7 +101,7 @@ public:
     {
         if (!m_loaded) {
             m_loaded = true;
-            m_ids = m_key.isNonMatching() ? QMailMessageIdList() : m_model.orderedIds(m_key);
+            m_ids = m_key.isNonMatching() ? QMailMessageIdList() : m_model.loadRows(m_key);
             m_rowsDirty = true;
         }
         return m_ids;
@@ -139,10 +149,11 @@ UnifiedMessageListModel::UnifiedMessageListModel(QObject *parent)
     connect(this, &QAbstractItemModel::rowsInserted, this, &UnifiedMessageListModel::countChanged);
     connect(this, &QAbstractItemModel::rowsRemoved, this, &UnifiedMessageListModel::countChanged);
     connect(this, &QAbstractItemModel::modelReset, this, &UnifiedMessageListModel::countChanged);
-    connect(this, &QAbstractItemModel::rowsInserted, this, &UnifiedMessageListModel::unreadCountChanged);
-    connect(this, &QAbstractItemModel::rowsRemoved, this, &UnifiedMessageListModel::unreadCountChanged);
-    connect(this, &QAbstractItemModel::modelReset, this, &UnifiedMessageListModel::unreadCountChanged);
-    connect(this, &QAbstractItemModel::dataChanged, this, &UnifiedMessageListModel::unreadCountChanged);
+    // Otherwise announced once the rows are updated (announceUnreadCount()), not for each row.
+    connect(this, &QAbstractItemModel::modelReset, this, [this]() {
+        m_announcedUnread = -1;
+        emit unreadCountChanged();
+    });
     connect(QMailStore::instance(), &QMailStore::messagesRemoved,
             this, &UnifiedMessageListModel::onMessagesRemoved);
 
@@ -156,9 +167,15 @@ UnifiedMessageListModel::UnifiedMessageListModel(QObject *parent)
     m_regroupTimer.setInterval(300);
     connect(&m_regroupTimer, &QTimer::timeout, this, [this]() { regroup(); });
     QMailStore *store = QMailStore::instance();
-    connect(store, &QMailStore::messagesAdded, this, &UnifiedMessageListModel::onStoreChanged);
-    connect(store, &QMailStore::messagesUpdated, this, &UnifiedMessageListModel::onStoreChanged);
-    connect(store, &QMailStore::messagesRemoved, this, &UnifiedMessageListModel::onStoreChanged);
+    connect(store, &QMailStore::messagesAdded, this, [this](const QMailMessageIdList &ids) {
+        onStoreChanged(ids, false);
+    });
+    connect(store, &QMailStore::messagesUpdated, this, [this](const QMailMessageIdList &ids) {
+        onStoreChanged(ids, false);
+    });
+    connect(store, &QMailStore::messagesRemoved, this, [this](const QMailMessageIdList &ids) {
+        onStoreChanged(ids, true);
+    });
 }
 
 QModelIndex UnifiedMessageListModel::index(int row, int column, const QModelIndex &parent) const
@@ -267,7 +284,10 @@ void UnifiedMessageListModel::setUnreadFirst(bool first)
 
 void UnifiedMessageListModel::resort()
 {
-    if (m_list->loaded())
+    // The conversations' rows are ordered when grouped.
+    if (!m_threadedKey.isEmpty())
+        regroup(true);
+    else if (m_list->loaded())
         fullRefresh(false);
 }
 
@@ -283,55 +303,88 @@ bool UnifiedMessageListModel::isUnread(const QMailMessageId &id, quint64 status)
     return false;
 }
 
-QMailMessageIdList UnifiedMessageListModel::orderedIds(const QMailMessageKey &key) const
+QMailMessageKey::Properties UnifiedMessageListModel::sortProperties() const
 {
-    const bool bySender = m_sortOrder == BySender || m_sortOrder == BySenderDescending;
     QMailMessageKey::Properties properties = QMailMessageKey::Id | QMailMessageKey::Status
             | QMailMessageKey::TimeStamp;
-    if (bySender)
+    if (m_sortOrder == BySender || m_sortOrder == BySenderDescending)
         properties |= QMailMessageKey::Sender;
     if (m_sortOrder == BySize)
         properties |= QMailMessageKey::Size;
-    const QMailMessageMetaDataList messages = QMailStore::instance()->messagesMetaData(key, properties);
+    return properties;
+}
 
+QMailMessageIdList UnifiedMessageListModel::loadRows(const QMailMessageKey &key) const
+{
+    if (!m_threadedKey.isEmpty())
+        return m_ordered;
+    QElapsedTimer timer;
+    timer.start();
+    const QMailMessageMetaDataList messages = QMailStore::instance()->messagesMetaData(key, sortProperties());
+    const qint64 queried = timer.elapsed();
+    QSet<QMailMessageId> unread;
+    const QMailMessageIdList ids = order(messages, &unread);
+    m_unread = unread;
+    qCDebug(lcList) << "loadRows:" << ids.size() << "messages, query" << queried << "ms, total"
+                    << timer.elapsed() << "ms";
+    return ids;
+}
+
+QMailMessageIdList UnifiedMessageListModel::order(const QMailMessageMetaDataList &messages,
+                                                  QSet<QMailMessageId> *unread) const
+{
+    const bool bySender = m_sortOrder == BySender || m_sortOrder == BySenderDescending;
+
+    // What's compared, worked out once per message rather than in each of the n log n
+    // comparisons: converting dates and comparing names by locale take a while.
     struct Row {
         QMailMessageId id;
         bool starred;
         bool unread;
-        // The name shown, as compared (case aside) and as shown.
-        QString senderKey;
+        // The name shown, compared case aside (by its collation key) and as shown.
         QString sender;
-        QDateTime date;
+        qint64 date;
         uint size;
     };
     QVector<Row> rows;
     rows.reserve(messages.size());
+    std::vector<QCollatorSortKey> senderKeys;
+    QCollator collator;
+    if (bySender)
+        senderKeys.reserve(messages.size());
     for (const QMailMessageMetaData &message : messages) {
         Row row;
         row.id = message.id();
         row.starred = message.status() & QMailMessage::Important;
         row.unread = isUnread(row.id, message.status());
+        if (unread && !(message.status() & QMailMessage::Read))
+            unread->insert(row.id);
         if (bySender) {
             const QMailAddress from = message.from();
             row.sender = from.name().isEmpty() ? from.address() : from.name();
-            row.senderKey = row.sender.toCaseFolded();
+            senderKeys.push_back(collator.sortKey(row.sender.toCaseFolded()));
         }
-        row.date = message.date().toUTC();
+        row.date = message.date().toUTC().toMSecsSinceEpoch();
         row.size = message.size();
         rows.append(row);
     }
 
+    QVector<int> indexes(rows.size());
+    for (int i = 0; i < indexes.size(); ++i)
+        indexes[i] = i;
     const SortOrder order = m_sortOrder;
     const bool starredFirst = m_starredFirst;
     const bool unreadFirst = m_unreadFirst;
-    std::sort(rows.begin(), rows.end(), [=](const Row &a, const Row &b) {
+    std::sort(indexes.begin(), indexes.end(), [&](int i, int j) {
+        const Row &a = rows.at(i);
+        const Row &b = rows.at(j);
         if (starredFirst && a.starred != b.starred)
             return a.starred;
         if (unreadFirst && a.unread != b.unread)
             return a.unread;
         if (bySender) {
             // The same name spelt the same stays together, so each gets one section.
-            int c = QString::localeAwareCompare(a.senderKey, b.senderKey);
+            int c = senderKeys[i].compare(senderKeys[j]);
             if (c == 0)
                 c = QString::compare(a.sender, b.sender);
             if (c != 0)
@@ -345,21 +398,24 @@ QMailMessageIdList UnifiedMessageListModel::orderedIds(const QMailMessageKey &ke
     });
 
     QMailMessageIdList ids;
-    ids.reserve(rows.size());
-    for (const Row &row : rows)
-        ids.append(row.id);
+    ids.reserve(indexes.size());
+    for (int i : indexes)
+        ids.append(rows.at(i).id);
     return ids;
 }
 
 void UnifiedMessageListModel::reorder(bool allChanged)
 {
+    QElapsedTimer timer;
+    timer.start();
+    int signalled = 0;
     m_refreshTimer.stop();
     if (!m_list->loaded()) {
         m_changed.clear();
         return;
     }
     const QMailMessageIdList target = m_list->key().isNonMatching() ? QMailMessageIdList()
-                                                                     : orderedIds(m_list->key());
+                                                                     : loadRows(m_list->key());
     const QSet<QMailMessageId> wanted = target.toSet();
     QMailMessageIdList &rows = m_list->list();
 
@@ -369,6 +425,7 @@ void UnifiedMessageListModel::reorder(bool allChanged)
             beginRemoveRows(QModelIndex(), row, row);
             rows.removeAt(row);
             endRemoveRows();
+            ++signalled;
         }
     }
     // Then from the top: each row moved up to its place, or added there.
@@ -386,6 +443,7 @@ void UnifiedMessageListModel::reorder(bool allChanged)
             rows.move(from, row);
             endMoveRows();
         }
+        ++signalled;
     }
     m_list->rowsChanged();
 
@@ -400,6 +458,9 @@ void UnifiedMessageListModel::reorder(bool allChanged)
         }
     }
     m_changed.clear();
+    announceUnreadCount();
+    qCDebug(lcList) << "reorder:" << rows.size() << "rows," << signalled << "inserted, moved or removed,"
+                    << timer.elapsed() << "ms";
 }
 
 void UnifiedMessageListModel::removeRows(const QMailMessageIdList &ids)
@@ -418,6 +479,26 @@ void UnifiedMessageListModel::removeRows(const QMailMessageIdList &ids)
         endRemoveRows();
     }
     m_list->rowsChanged();
+    if (m_threadedKey.isEmpty()) {
+        for (const QMailMessageId &id : ids)
+            m_unread.remove(id);
+        announceUnreadCount();
+    }
+}
+
+void UnifiedMessageListModel::announceUnreadCount()
+{
+    if (m_unread.size() == m_announcedUnread)
+        return;
+    m_announcedUnread = m_unread.size();
+    emit unreadCountChanged();
+}
+
+int UnifiedMessageListModel::unreadCount() const
+{
+    // Loads the rows, and with them what's unread, when not done yet.
+    m_list->ids();
+    return m_unread.size();
 }
 
 void UnifiedMessageListModel::setThreaded(bool threaded)
@@ -484,9 +565,12 @@ void UnifiedMessageListModel::updateKey()
     cancelSearches();
     m_matches.clear();
     m_threadedKey = QMailMessageKey();
-    m_rows.clear();
+    m_ordered.clear();
     m_members.clear();
     m_unread.clear();
+    m_announcedUnread = -1;
+    m_allIds.clear();
+    m_threadRows.clear();
     m_serverKey = QMailMessageKey::nonMatchingKey();
     m_selected.clear();
     emit selectedMessageCountChanged();
@@ -783,71 +867,109 @@ QMailMessageIdList UnifiedMessageListModel::membersOf(const QMailMessageId &id) 
     return members != m_members.constEnd() ? *members : QMailMessageIdList() << id;
 }
 
-void UnifiedMessageListModel::onStoreChanged()
+void UnifiedMessageListModel::onStoreChanged(const QMailMessageIdList &ids, bool removed)
 {
-    if (!m_threadedKey.isEmpty())
+    if (m_threadedKey.isEmpty() || m_regroupTimer.isActive())
+        return;
+    // Grouped again only for changes to its messages, or messages coming in: a sync changes
+    // mail all over the store.
+    for (const QMailMessageId &id : ids) {
+        if (m_allIds.contains(id)) {
+            m_regroupTimer.start();
+            return;
+        }
+    }
+    if (removed) {
+        // From another folder, maybe of one of its conversations.
+        m_threadSizes.clear();
+        return;
+    }
+    QMailStore *store = QMailStore::instance();
+    if (store->countMessages(m_threadedKey & QMailMessageKey::id(ids)) > 0) {
         m_regroupTimer.start();
+        return;
+    }
+    // Mail elsewhere in one of its conversations, as a reply in Sent: their sizes changed.
+    const QMailMessageMetaDataList others = store->messagesMetaData(QMailMessageKey::id(ids),
+                                                                    QMailMessageKey::ParentThreadId);
+    for (const QMailMessageMetaData &other : others) {
+        const auto row = m_threadRows.constFind(other.parentThreadId());
+        if (row == m_threadRows.constEnd())
+            continue;
+        m_threadSizes.remove(other.parentThreadId());
+        const QModelIndex idx = m_list->indexFromId(*row);
+        if (idx.isValid())
+            emit dataChanged(idx, idx, QVector<int>() << ThreadCountRole);
+    }
 }
 
 void UnifiedMessageListModel::regroup(bool force)
 {
     if (m_threadedKey.isEmpty())
         return;
-    QMailMessageMetaDataList messages = QMailStore::instance()->messagesMetaData(
-                m_threadedKey, QMailMessageKey::Id | QMailMessageKey::ParentThreadId
-                | QMailMessageKey::Status | QMailMessageKey::TimeStamp);
-    std::sort(messages.begin(), messages.end(), [](const QMailMessageMetaData &a, const QMailMessageMetaData &b) {
-        return a.date().toUTC() > b.date().toUTC();
+    m_regroupTimer.stop();
+    QElapsedTimer timer;
+    timer.start();
+    const QMailMessageMetaDataList messages = QMailStore::instance()->messagesMetaData(
+                m_threadedKey, sortProperties() | QMailMessageKey::ParentThreadId);
+    const qint64 queried = timer.elapsed();
+
+    // Newest first, each date converted once.
+    QVector<QPair<qint64, int>> byDate;
+    byDate.reserve(messages.size());
+    for (int i = 0; i < messages.size(); ++i)
+        byDate.append(qMakePair(messages.at(i).date().toUTC().toMSecsSinceEpoch(), i));
+    std::sort(byDate.begin(), byDate.end(), [](const QPair<qint64, int> &a, const QPair<qint64, int> &b) {
+        return a.first != b.first ? a.first > b.first : a.second < b.second;
     });
 
     // The newest message of each conversation is its row.
-    QMailMessageIdList rows;
-    QHash<QMailThreadId, QMailMessageId> newest;
+    QMailMessageMetaDataList rows;
+    m_threadRows.clear();
     m_members.clear();
     m_unread.clear();
+    m_allIds.clear();
     m_threadSizes.clear();
-    for (const QMailMessageMetaData &message : messages) {
+    m_allIds.reserve(messages.size());
+    for (const QPair<qint64, int> &entry : byDate) {
+        const QMailMessageMetaData &message = messages.at(entry.second);
         const QMailMessageId id = message.id();
+        m_allIds.insert(id);
         if (!(message.status() & QMailMessage::Read))
             m_unread.insert(id);
         const QMailThreadId thread = message.parentThreadId();
-        const auto row = thread.isValid() ? newest.constFind(thread) : newest.constEnd();
-        if (row != newest.constEnd()) {
+        const auto row = thread.isValid() ? m_threadRows.constFind(thread) : m_threadRows.constEnd();
+        if (row != m_threadRows.constEnd()) {
             m_members[*row].append(id);
             continue;
         }
         if (thread.isValid())
-            newest.insert(thread, id);
-        rows.append(id);
+            m_threadRows.insert(thread, id);
+        rows.append(message);
         m_members.insert(id, QMailMessageIdList() << id);
     }
+    // In order, now that what's unread per conversation is known.
+    m_ordered = order(rows, nullptr);
 
     // Setting the key resets the list, so only for other folders; otherwise the rows are moved
     // into place, as a conversation's unread state can change its place too, and drawn again.
-    m_rows = rows;
-    const QMailMessageKey key = rows.isEmpty() ? QMailMessageKey::nonMatchingKey() : QMailMessageKey::id(rows);
     if (force) {
-        setKey(key);
+        setKey(m_threadedKey);
     } else {
-        m_list->setKey(key);
         reorder(true);
     }
+    announceUnreadCount();
+    qCDebug(lcList) << "regroup:" << messages.size() << "messages in" << m_ordered.size() << "rows, query"
+                    << queried << "ms, total" << timer.elapsed() << "ms";
 }
 
 QVariantList UnifiedMessageListModel::unreadMessageIds() const
 {
+    m_list->ids();
     QVariantList ids;
-    for (int row = 0; row < rowCount(); ++row) {
-        const QModelIndex idx = index(row);
-        if (data(idx, ReadStatusRole).toBool())
-            continue;
-        // A conversation's unread messages, or the row's own.
-        const QMailMessageId rowId = idFromIndex(idx);
-        for (const QMailMessageId &id : membersOf(rowId)) {
-            if (!m_members.contains(rowId) || m_unread.contains(id))
-                ids.append(int(id.toULongLong()));
-        }
-    }
+    ids.reserve(m_unread.size());
+    for (const QMailMessageId &id : m_unread)
+        ids.append(int(id.toULongLong()));
     return ids;
 }
 
