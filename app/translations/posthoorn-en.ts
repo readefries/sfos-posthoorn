@@ -305,6 +305,19 @@
     </message>
 </context>
 <context>
+    <name>Deletion</name>
+    <message>
+        <location filename="../src/deletion.cpp" line="+280"/>
+        <source>The folder changed on the server; sync it and try again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+93"/>
+        <source>The mail server didn&apos;t delete the mail: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>FolderItem</name>
     <message>
         <location filename="../qml/pages/FolderItem.qml" line="+27"/>
@@ -363,18 +376,31 @@
 <context>
     <name>ImapPartFetcher</name>
     <message>
-        <location filename="../src/imappartfetcher.cpp" line="+69"/>
-        <source>The mail server didn&apos;t answer in time</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+33"/>
+        <location filename="../src/imappartfetcher.cpp" line="+31"/>
         <source>This mail isn&apos;t on an IMAP server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location line="+7"/>
+        <source>The mail&apos;s folder isn&apos;t on the server any more</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location line="+10"/>
-        <location line="+19"/>
+        <source>The mail isn&apos;t on the server any more</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ImapSession</name>
+    <message>
+        <location filename="../src/imapsession.cpp" line="+45"/>
+        <source>The mail server didn&apos;t answer in time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+71"/>
+        <location line="+47"/>
         <source>The account&apos;s credentials aren&apos;t available</source>
         <translation type="unfinished"></translation>
     </message>
@@ -394,23 +420,13 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+44"/>
+        <location line="+27"/>
         <source>The mail server doesn&apos;t offer encryption</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+9"/>
         <source>Couldn&apos;t sign in to the mail server</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>The mail&apos;s folder isn&apos;t on the server any more</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+10"/>
-        <source>The mail isn&apos;t on the server any more</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1797,8 +1813,13 @@
         <source>Sending failed, the mail is in the Outbox</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location line="+34"/>
+        <source>Couldn&apos;t delete: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
-        <location line="+41"/>
+        <location line="+26"/>
         <source>Imported %n key(s)</source>
         <translation>
             <numerusform>Imported %n key</numerusform>

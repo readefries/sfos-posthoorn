@@ -33,7 +33,8 @@ and sending are done by the messageserver. It can be used next to Jolla's Mail, 
   with a tinted background. "Mark all as read" in the pulley of any list.
 - Per mail or conversation (long-press) or for a selection: archive, snooze, mark read or unread,
   star, move, delete. Archiving moves mail to its account's archive folder, found by name or
-  chosen in Settings. Stars are the server's "flagged". "Mark all as read" for a folder or the
+  chosen in Settings. Deleting moves mail to the account's Trash; in Trash or Spam (or for an
+  account without Trash) it deletes it for good. Stars are the server's "flagged". "Mark all as read" for a folder or the
   unified inbox.
 - Snoozing hides mail until later today, this evening, tomorrow morning, the weekend, next week
   or a chosen time, then brings it back unread. It's kept on the phone; the mail stays where it

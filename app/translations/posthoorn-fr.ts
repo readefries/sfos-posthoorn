@@ -305,6 +305,19 @@
     </message>
 </context>
 <context>
+    <name>Deletion</name>
+    <message>
+        <location filename="../src/deletion.cpp" line="+280"/>
+        <source>The folder changed on the server; sync it and try again</source>
+        <translation>Le dossier a changé sur le serveur ; synchronisez-le et réessayez</translation>
+    </message>
+    <message>
+        <location line="+93"/>
+        <source>The mail server didn&apos;t delete the mail: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>FolderItem</name>
     <message>
         <location filename="../qml/pages/FolderItem.qml" line="+27"/>
@@ -363,48 +376,12 @@
 <context>
     <name>ImapPartFetcher</name>
     <message>
-        <location filename="../src/imappartfetcher.cpp" line="+69"/>
-        <source>The mail server didn&apos;t answer in time</source>
-        <translation>Le serveur de messagerie n&apos;a pas répondu à temps</translation>
-    </message>
-    <message>
-        <location line="+33"/>
+        <location filename="../src/imappartfetcher.cpp" line="+31"/>
         <source>This mail isn&apos;t on an IMAP server</source>
         <translation>Ce message n&apos;est pas sur un serveur IMAP</translation>
     </message>
     <message>
-        <location line="+10"/>
-        <location line="+19"/>
-        <source>The account&apos;s credentials aren&apos;t available</source>
-        <translation>Les identifiants du compte ne sont pas disponibles</translation>
-    </message>
-    <message>
-        <location line="+21"/>
-        <source>Couldn&apos;t reach the mail server</source>
-        <translation>Impossible de joindre le serveur de messagerie</translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>The mail server&apos;s certificate isn&apos;t trusted</source>
-        <translation>Le certificat du serveur de messagerie n&apos;est pas reconnu</translation>
-    </message>
-    <message>
-        <location line="+66"/>
-        <source>The mail server refused the connection</source>
-        <translation>Le serveur de messagerie a refusé la connexion</translation>
-    </message>
-    <message>
-        <location line="+44"/>
-        <source>The mail server doesn&apos;t offer encryption</source>
-        <translation>Le serveur de messagerie ne propose pas de chiffrement</translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>Couldn&apos;t sign in to the mail server</source>
-        <translation>Impossible de se connecter au serveur de messagerie</translation>
-    </message>
-    <message>
-        <location line="+10"/>
+        <location line="+7"/>
         <source>The mail&apos;s folder isn&apos;t on the server any more</source>
         <translation>Le dossier de ce message n&apos;est plus sur le serveur</translation>
     </message>
@@ -412,6 +389,45 @@
         <location line="+10"/>
         <source>The mail isn&apos;t on the server any more</source>
         <translation>Ce message n&apos;est plus sur le serveur</translation>
+    </message>
+</context>
+<context>
+    <name>ImapSession</name>
+    <message>
+        <location filename="../src/imapsession.cpp" line="+45"/>
+        <source>The mail server didn&apos;t answer in time</source>
+        <translation type="unfinished">Le serveur de messagerie n&apos;a pas répondu à temps</translation>
+    </message>
+    <message>
+        <location line="+71"/>
+        <location line="+47"/>
+        <source>The account&apos;s credentials aren&apos;t available</source>
+        <translation type="unfinished">Les identifiants du compte ne sont pas disponibles</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Couldn&apos;t reach the mail server</source>
+        <translation type="unfinished">Impossible de joindre le serveur de messagerie</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>The mail server&apos;s certificate isn&apos;t trusted</source>
+        <translation type="unfinished">Le certificat du serveur de messagerie n&apos;est pas reconnu</translation>
+    </message>
+    <message>
+        <location line="+66"/>
+        <source>The mail server refused the connection</source>
+        <translation type="unfinished">Le serveur de messagerie a refusé la connexion</translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>The mail server doesn&apos;t offer encryption</source>
+        <translation type="unfinished">Le serveur de messagerie ne propose pas de chiffrement</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Couldn&apos;t sign in to the mail server</source>
+        <translation type="unfinished">Impossible de se connecter au serveur de messagerie</translation>
     </message>
 </context>
 <context>
@@ -1797,8 +1813,13 @@
         <source>Sending failed, the mail is in the Outbox</source>
         <translation>Échec de l&apos;envoi, le message est dans la boîte d&apos;envoi</translation>
     </message>
+    <message>
+        <location line="+34"/>
+        <source>Couldn&apos;t delete: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
-        <location line="+41"/>
+        <location line="+26"/>
         <source>Imported %n key(s)</source>
         <translation>
             <numerusform>%n clé importée</numerusform>

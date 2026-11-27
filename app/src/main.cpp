@@ -6,6 +6,7 @@
 #include "addresses.h"
 #include "appstate.h"
 #include "archivefolders.h"
+#include "deletion.h"
 #include "links.h"
 #include "mailuiservice.h"
 #include "messagebody.h"
@@ -101,6 +102,10 @@ int main(int argc, char *argv[])
                                              [](QQmlEngine *, QJSEngine *) -> QObject * {
                                                  return new ArchiveFolders;
                                              });
+    qmlRegisterSingletonType<Deletion>("Posthoorn", 1, 0, "Deletion",
+                                       [](QQmlEngine *, QJSEngine *) -> QObject * {
+                                           return new Deletion;
+                                       });
     qmlRegisterSingletonType<MessageFlags>("Posthoorn", 1, 0, "MessageFlags",
                                            [](QQmlEngine *, QJSEngine *) -> QObject * {
                                                return new MessageFlags;

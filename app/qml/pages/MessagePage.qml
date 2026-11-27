@@ -445,7 +445,7 @@ Page {
             IconButton {
                 icon.source: "image://theme/icon-m-delete"
                 onClicked: remorse.execute(qsTr("Deleting"), function() {
-                    app.emailAgent.deleteMessage(page.messageId)
+                    app.deleteMessages([page.messageId])
                     app.popFrom(page)
                 })
             }
