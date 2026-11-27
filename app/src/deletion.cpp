@@ -42,12 +42,76 @@ QString expungedKey(const QMailAccountId &account)
     return QStringLiteral("deletion/expunged-%1").arg(account.toULongLong());
 }
 
+const QString pendingKey = QStringLiteral("deletion/pending");
+
+QByteArray copiedKey(const QByteArray &folderPath, const QByteArray &uidValidity, const QByteArray &uid)
+{
+    return folderPath + ' ' + uidValidity + ' ' + uid;
+}
+
+// "* OK [UIDVALIDITY 1234] UIDs valid": 1234.
+QByteArray uidValidityIn(const QByteArray &text)
+{
+    const QByteArray code("[UIDVALIDITY ");
+    const int at = text.toUpper().indexOf(code);
+    if (at < 0)
+        return QByteArray();
+    const int start = at + code.size();
+    const int end = text.indexOf(']', start);
+    return end < 0 ? QByteArray() : text.mid(start, end - start).trimmed();
+}
+
 } // namespace
 
 Deletion::Deletion(QObject *parent)
     : QObject(parent)
     , m_settings(AppState::fileName(), QSettings::IniFormat)
 {
+    restorePending();
+}
+
+void Deletion::restorePending()
+{
+    // Hidden when the app stopped before the server was done: shown again, to delete again. Mail
+    // the server did delete goes on QMF's next sync.
+    QMailMessageIdList ids;
+    for (const QString &id : m_settings.value(pendingKey).toStringList()) {
+        const QMailMessageId messageId(id.toULongLong());
+        if (messageId.isValid())
+            ids.append(messageId);
+    }
+    if (ids.isEmpty())
+        return;
+    qInfo() << "Showing" << ids.size() << "message(s) again that weren't deleted on the server yet";
+    setHidden(ids, false);
+    m_settings.remove(pendingKey);
+    m_settings.sync();
+}
+
+void Deletion::setPending(const QMailMessageIdList &ids, bool pending)
+{
+    QStringList list = m_settings.value(pendingKey).toStringList();
+    for (const QMailMessageId &id : ids) {
+        const QString text = QString::number(id.toULongLong());
+        if (pending) {
+            if (!list.contains(text))
+                list.append(text);
+        } else {
+            list.removeAll(text);
+        }
+    }
+    if (list.isEmpty())
+        m_settings.remove(pendingKey);
+    else
+        m_settings.setValue(pendingKey, list);
+    // Before the mail is hidden, in case the app stops right after.
+    m_settings.sync();
+}
+
+void Deletion::unhide(const QMailMessageIdList &ids)
+{
+    setHidden(ids, false);
+    setPending(ids, false);
 }
 
 void Deletion::remove(const QVariantList &messageIds)
@@ -81,6 +145,8 @@ void Deletion::remove(const QVariantList &messageIds)
                 || isTrashOrSpam(account, serverFolderId(message));
         Batch &batch = batches[account.id()][qMakePair(folderPath, forGood)];
         batch.folderPath = folderPath;
+        batch.uidValidity = QMailFolder(serverFolderId(message)).customField(
+                    QStringLiteral("qmf-uidvalidity")).toLatin1();
         if (!forGood)
             batch.trashPath = QMailFolder(trash).path().toUtf8();
         batch.uids.append(uid);
@@ -96,6 +162,7 @@ void Deletion::remove(const QVariantList &messageIds)
         job.account = account.key();
         for (const Batch &batch : account.value()) {
             // Gone from the lists right away, while the server does it.
+            setPending(batch.ids, true);
             setHidden(batch.ids, true);
             job.batches.append(batch);
         }
@@ -112,11 +179,12 @@ void Deletion::expungeLeftoversOnce()
             continue;
         bool queued = false;
         for (const Job &job : m_jobs)
-            queued = queued || (job.account == account && !job.expunge.isEmpty());
+            queued = queued || (job.account == account && job.cleanup);
         if (queued)
             continue;
         Job job;
         job.account = account;
+        job.cleanup = true;
         for (const QMailFolderId &folder : store->queryFolders(QMailFolderKey::parentAccountId(account))) {
             const QString path = QMailFolder(folder).path();
             if (!path.isEmpty())
@@ -145,7 +213,7 @@ void Deletion::runNext()
         // The connection is gone: what's left of this job is undone.
         Job &job = m_jobs.first();
         for (const Batch &batch : job.batches)
-            setHidden(batch.ids, false);
+            unhide(batch.ids);
         if (!job.batches.isEmpty()) {
             qWarning() << "Deleting failed:" << reason;
             emit failed(reason);
@@ -156,9 +224,16 @@ void Deletion::runNext()
         jobDone();
     });
 
+    connect(m_session, &ImapSession::untagged, this, [this](const QByteArray &text) {
+        const QByteArray uidValidity = uidValidityIn(text);
+        if (!uidValidity.isEmpty())
+            m_uidValidity = uidValidity;
+    });
     connect(m_session, &ImapSession::ready, this, &Deletion::step);
 
     if (!m_session->open(job.account)) {
+        for (const Batch &batch : job.batches)
+            unhide(batch.ids);
         m_session->deleteLater();
         m_session = nullptr;
         m_jobs.removeFirst();
@@ -190,56 +265,121 @@ void Deletion::step()
     Job &job = m_jobs.first();
     if (!job.batches.isEmpty()) {
         const Batch batch = job.batches.first();
-        const QByteArray set = batch.uids.join(',');
-        const QByteArray expunge = m_session->hasCapability("UIDPLUS") ? "UID EXPUNGE " + set
-                                                                       : QByteArray("EXPUNGE");
-        QList<QByteArray> commands;
-        commands << "SELECT " + ImapSession::quoted(batch.folderPath);
-        if (!batch.trashPath.isEmpty() && m_session->hasCapability("MOVE")) {
-            commands << "UID MOVE " + set + ' ' + ImapSession::quoted(batch.trashPath);
-        } else {
-            if (!batch.trashPath.isEmpty())
-                commands << "UID COPY " + set + ' ' + ImapSession::quoted(batch.trashPath);
-            commands << "UID STORE " + set + " +FLAGS.SILENT (\\Deleted)" << expunge;
-        }
-        runCommands(commands, [this, batch](bool ok, const QByteArray &text) {
-            m_jobs.first().batches.removeFirst();
-            finishBatch(batch, ok, text);
-            step();
+        m_uidValidity.clear();
+        runCommands(QList<QByteArray>() << "SELECT " + ImapSession::quoted(batch.folderPath),
+                    [this, batch](bool ok, const QByteArray &text) {
+            if (!ok) {
+                batchDone(batch, false, text);
+                return;
+            }
+            // The UIDs are of what QMF synced: once the folder's UIDVALIDITY is another, they
+            // can be other mail's.
+            if (batch.uidValidity.isEmpty() || m_uidValidity != batch.uidValidity) {
+                qWarning() << "UIDVALIDITY of" << batch.folderPath << "is" << m_uidValidity
+                           << "on the server, synced was" << batch.uidValidity;
+                batchDone(batch, false, tr("The folder changed on the server; sync it and try again").toUtf8());
+                return;
+            }
+            deleteSelected(batch);
         });
         return;
     }
     if (!job.expunge.isEmpty()) {
         const QByteArray folder = job.expunge.takeFirst();
-        // A folder that can't be selected (only holding others) is skipped.
-        runCommands(QList<QByteArray>() << "SELECT " + ImapSession::quoted(folder) << "EXPUNGE",
+        runCommands(QList<QByteArray>() << "SELECT " + ImapSession::quoted(folder),
                     [this, folder](bool ok, const QByteArray &text) {
-            if (!ok)
-                qInfo() << "Not expunged:" << folder << text;
-            if (m_jobs.first().expunge.isEmpty()) {
-                qInfo() << "Expunged left-over mail of account" << m_jobs.first().account.toULongLong();
-                m_settings.setValue(expungedKey(m_jobs.first().account), true);
+            if (!ok) {
+                // A folder that can't be selected (only holding others) is skipped.
+                qInfo() << "Not selectable, skipped:" << folder << text;
+                step();
+                return;
             }
-            step();
+            runCommands(QList<QByteArray>() << "EXPUNGE", [this, folder](bool ok, const QByteArray &text) {
+                if (!ok) {
+                    qWarning() << "Not expunged:" << folder << text;
+                    m_jobs.first().expungeFailed = true;
+                }
+                step();
+            });
         });
         return;
     }
+    if (job.cleanup) {
+        if (job.expungeFailed) {
+            qWarning() << "Expunging left-over mail of account" << job.account.toULongLong()
+                       << "failed somewhere; again on the next start";
+        } else {
+            qInfo() << "Expunged left-over mail of account" << job.account.toULongLong();
+            m_settings.setValue(expungedKey(job.account), true);
+        }
+    }
     m_session->logout();
     jobDone();
+}
+
+void Deletion::deleteSelected(const Batch &batch)
+{
+    const QByteArray set = batch.uids.join(',');
+    const QByteArray expunge = m_session->hasCapability("UIDPLUS") ? "UID EXPUNGE " + set
+                                                                   : QByteArray("EXPUNGE");
+    const auto done = [this, batch](bool ok, const QByteArray &text) {
+        batchDone(batch, ok, text);
+    };
+    const QList<QByteArray> remove = QList<QByteArray>()
+            << "UID STORE " + set + " +FLAGS.SILENT (\\Deleted)" << expunge;
+
+    if (batch.trashPath.isEmpty()) {
+        runCommands(remove, done);
+        return;
+    }
+    if (m_session->hasCapability("MOVE")) {
+        runCommands(QList<QByteArray>() << "UID MOVE " + set + ' ' + ImapSession::quoted(batch.trashPath), done);
+        return;
+    }
+    // Copied by an earlier try that failed after: not again.
+    QList<QByteArray> toCopy;
+    for (const QByteArray &uid : batch.uids) {
+        if (!m_copied.contains(copiedKey(batch.folderPath, batch.uidValidity, uid)))
+            toCopy.append(uid);
+    }
+    if (toCopy.isEmpty()) {
+        runCommands(remove, done);
+        return;
+    }
+    runCommands(QList<QByteArray>() << "UID COPY " + toCopy.join(',') + ' ' + ImapSession::quoted(batch.trashPath),
+                [this, batch, toCopy, remove, done](bool ok, const QByteArray &text) {
+        if (!ok) {
+            done(false, text);
+            return;
+        }
+        for (const QByteArray &uid : toCopy)
+            m_copied.insert(copiedKey(batch.folderPath, batch.uidValidity, uid));
+        runCommands(remove, done);
+    });
+}
+
+void Deletion::batchDone(const Batch &batch, bool ok, const QByteArray &text)
+{
+    m_jobs.first().batches.removeFirst();
+    finishBatch(batch, ok, text);
+    step();
 }
 
 void Deletion::finishBatch(const Batch &batch, bool ok, const QByteArray &text)
 {
     if (!ok) {
         qWarning() << "Deleting from" << batch.folderPath << "failed:" << text;
-        setHidden(batch.ids, false);
+        unhide(batch.ids);
         emit failed(tr("The mail server didn't delete the mail: %1").arg(QString::fromUtf8(text)));
         return;
     }
     qInfo() << "Deleted" << batch.ids.size() << "message(s) from" << batch.folderPath
             << (batch.trashPath.isEmpty() ? "for good" : "to Trash");
+    for (const QByteArray &uid : batch.uids)
+        m_copied.remove(copiedKey(batch.folderPath, batch.uidValidity, uid));
+    setPending(batch.ids, false);
     // The server has done it; no removal record, which would have QMF do it again.
-    QMailStore::instance()->removeMessages(QMailMessageKey::id(batch.ids));
+    QMailStore::instance()->removeMessages(QMailMessageKey::id(batch.ids), QMailStore::NoRemovalRecord);
     if (!batch.trashPath.isEmpty()) {
         const QMailAccount account(m_jobs.first().account);
         emit movedToTrash(int(account.id().toULongLong()),

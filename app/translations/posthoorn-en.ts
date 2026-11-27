@@ -307,7 +307,12 @@
 <context>
     <name>Deletion</name>
     <message>
-        <location filename="../src/deletion.cpp" line="+236"/>
+        <location filename="../src/deletion.cpp" line="+280"/>
+        <source>The folder changed on the server; sync it and try again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+93"/>
         <source>The mail server didn&apos;t delete the mail: %1</source>
         <translation type="unfinished"></translation>
     </message>
