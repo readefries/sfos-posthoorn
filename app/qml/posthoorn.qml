@@ -71,6 +71,25 @@ ApplicationWindow {
             agent.moveMessage(messageId, ArchiveFolders.folderId(accountId))
     }
 
+    // Deletes mail, of any accounts: to Trash, or for good from Trash and Spam (see Deletion).
+    function deleteMessages(messageIds) {
+        Deletion.remove(messageIds)
+    }
+
+    Connections {
+        target: Deletion
+        onFailed: Notices.show(qsTr("Couldn't delete: %1").arg(reason), Notice.Long, Notice.Center)
+        // Trash gets the mail from the server.
+        onMovedToTrash: agent.retrieveMessageList(accountId, trashFolderId)
+    }
+
+    // Once, for mail deleted before Deletion: QMF left it marked deleted on the server.
+    Timer {
+        running: true
+        interval: 15000
+        onTriggered: Deletion.expungeLeftoversOnce()
+    }
+
     function setStarred(messageId, starred) {
         agent.exportUpdates(MessageFlags.setStarred(messageId, starred))
     }

@@ -462,7 +462,7 @@ Dialog {
                     }
                     remorse.execute(qsTr("Deleting draft"), function() {
                         dialog.discarded = true
-                        app.emailAgent.deleteMessage(dialog.draftId)
+                        app.deleteMessages([dialog.draftId])
                         app.popFrom(dialog)
                     })
                 }

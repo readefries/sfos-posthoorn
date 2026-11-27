@@ -13,9 +13,11 @@ HEADERS += \
     src/addresses.h \
     src/appstate.h \
     src/archivefolders.h \
+    src/deletion.h \
     src/devicelock.h \
     src/gpgjob.h \
     src/imappartfetcher.h \
+    src/imapsession.h \
     src/links.h \
     src/mailuiservice.h \
     src/messagebody.h \
@@ -30,10 +32,12 @@ HEADERS += \
     src/unifiedmessagelistmodel.h
 SOURCES += \
     src/appstate.cpp \
+    src/deletion.cpp \
     src/archivefolders.cpp \
     src/devicelock.cpp \
     src/gpgjob.cpp \
     src/imappartfetcher.cpp \
+    src/imapsession.cpp \
     src/mailuiservice.cpp \
     src/main.cpp \
     src/messagebody.cpp \

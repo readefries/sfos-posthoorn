@@ -139,7 +139,7 @@ Page {
     }
 
     function deleteSelected() {
-        app.emailAgent.deleteMessagesFromVariantList(messages.selectedMessageIds())
+        app.deleteMessages(messages.selectedMessageIds())
         stopSelecting()
     }
 
@@ -583,8 +583,8 @@ Page {
                     onClicked: {
                         var ids = item.rowIds()
                         // Taken now: when the remorse is over, the item's context may be gone.
-                        var agent = app.emailAgent
-                        item.remorseDelete(function() { agent.deleteMessagesFromVariantList(ids) })
+                        var window = app
+                        item.remorseDelete(function() { window.deleteMessages(ids) })
                     }
                 }
             }
