@@ -1,3 +1,6 @@
 [D-BUS Service]
 Name=com.jolla.email.ui
-Exec=/usr/bin/invoker --type=silica-qt5 -A -- /usr/bin/posthoorn
+# As the system's own apps do: through sailjail, with the app's sandbox from posthoorn.desktop.
+# "invoker -A" looks for a booster for the binary, which a sandboxed app doesn't have, so it
+# exited at once and notifications didn't open the app when it wasn't running.
+Exec=/usr/bin/invoker -s --type=generic /usr/bin/sailjail -p posthoorn.desktop /usr/bin/posthoorn
